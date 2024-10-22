@@ -216,8 +216,8 @@ def lancer_phase_4():
         with open(f'output/resultats_phase_4_{machine}.txt', 'w') as fichier:
             #for element in message_recu:
                 #fichier.write(f"{element}\n")
-            mots = message_recu.split("', '")   
-            fichier.write(f"{mots}\n")
+            mots = message_recu.split(', "') # On sépare les mots après chaque virgule et guillemet - donc après la valeur
+            fichier.write(f"{mots}\n") # On écrit les mots dans le fichier en sautant une ligne
         print(f"Liste enregistrée dans 'resultats_phase_4_{machine}.txt'")
     for machine, client_socket in connexions.items(): 
         message_reçu = recevoir_message(client_socket)
