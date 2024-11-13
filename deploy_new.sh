@@ -19,6 +19,18 @@ command2=("scp" "-r" "$localFolder$todeploy" "$login@${computers[0]}:$remoteFold
 echo ${command2[*]}
 "${command2[@]}";wait;
 
+# Supprimer le fichier fichiersWET.txt s'il existe
+if [ -f "fichiersWET.txt" ]; then
+    rm "fichiersWET.txt"
+fi
+
+# Récupérer les noms des fichiers présents dans le dossier sur la machine distante et écrire le résultat dans le fichier local fichiersWET.txt
+remoteFolderPath="/cal/commoncrawl/"
+outputFile="fichiersWET.txt"
+command4=("ssh" "$login@${computers[0]}" "ls -p $remoteFolderPath | grep -v /")
+echo ${command4[*]}
+"${command4[@]}" > $outputFile;wait;
+
 for c in ${computers[@]}; do
   #this command goes to the remote folder, waits 3 seconds and executes script
   command3=("ssh" "-tt" "$login@$c" "cd $remoteFolder/$todeploy; python3 $nameOfTheScript; wait;")

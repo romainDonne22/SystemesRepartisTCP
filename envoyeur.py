@@ -11,7 +11,8 @@ machines_json = json.dumps(machines)
 
 # Lire le nom des fichiers WET à partir du fichier fichiersWET.txt
 with open('fichiersWET.txt', 'r') as file:
-    fichiersWET = [line.strip() for line in file.readlines()]
+    #fichiersWET = [line.strip() for line in file.readlines()]
+    fichiersWET = [line.strip() for line in file.readlines()[:3]] # On prend uniquement les 3 premiers fichiers WET pour tester
 
 # Tableaux pour stocker les états de fin de chaque phase
 tab_fin_phase_1 = [False]*len(machines)
