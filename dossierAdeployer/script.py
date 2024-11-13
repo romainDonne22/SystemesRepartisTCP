@@ -4,6 +4,7 @@ import struct
 import threading
 import os
 import time
+import sys
 
 # Obtenir le nom de la machine
 nom_machine = socket.gethostname()
@@ -124,42 +125,34 @@ def envoyer_message_liste(client_socket, message_liste):
         print(f"Erreur lors de l'envoi du message: {e}")
 
 def gerer_connexion(client_socket, adresse_client):
+    # Variaables :
+    nb_message=0 #pour compter le nombre de messages reçus
+    etat=1 #pour gérer les étapes
+    machines_reçues=[] # Créer une liste vide pour stocker le nom des machines reçues
+    fichiersWET_reçues = [] # Créer une liste vide pour stocker les noms des fichiers WET reçus
+    contenuWET = []
+    motsWET = [] # Créer une liste vide pour stocker tous les mots des fichiers WET
+    
     print(f"'{nom_machine}' : Connexion acceptée de {adresse_client}")
-
-    # Ajouter la connexion au dictionnaire
-    connexions[adresse_client] = client_socket
-
-    nb_message=0
-    mots=[]
-    machines_reçues=[]
-    etat=1
+    connexions[adresse_client] = client_socket #stocker la connexion
 
     while etat!=3:
         if etat==1 and nb_message==0:
-            message_reçu = recevoir_message(client_socket)
-            # MAP
-            # Recevoir la liste des machines
+            #################### MAP #######################################
+            message_reçu = recevoir_message(client_socket) # Recevoir la liste des machines
             print(f"'PHASE 1 {nom_machine}' : Message reçu: {message_reçu}")
             machines_reçues = json.loads(message_reçu)
-            nb_message+=1
+            nb_message=1
             
         elif etat==1 and nb_message==1:
-            # Recevoir le fichier WET
-            message_reçu = recevoir_message(client_socket)
-            # Supprimer les guillemets de la chaîne de caractères
-            message_reçu = message_reçu.replace('"', '')
-            # Ouvrir le fichier WET
-            with open('/cal/commoncrawl/'+ message_reçu, 'r') as file:
-                contenuWET = file.read() # Lire le contenu du fichier WET et le stocker dans une variable sous forme de chaîne de caractères
-            motsWET = contenuWET.split() # Diviser le contenu du fichier WET en mots
-
-            while message_reçu != "FIN PHASE 1":
+            message_reçu = recevoir_message(client_socket) # Recevoir les fichiers WET
+            while message_reçu != "FIN PHASE 1" :
+                fichiersWET_reçues = json.loads(message_reçu)
                 print(f"'PHASE 1 {nom_machine}' : Message reçu: {message_reçu}")
-                #mots.append(message_reçu)
-                nb_message+=1
+                nb_message=2
                 message_reçu = recevoir_message(client_socket)
 
-        elif message_reçu == "FIN PHASE 1":
+        elif message_reçu == "FIN PHASE 1" :
             while message_reçu != "GO PHASE 2":
                 print(f"'PHASE 1 {nom_machine}' : Message reçu: {message_reçu}")
                 etat=2
@@ -175,22 +168,36 @@ def gerer_connexion(client_socket, adresse_client):
                         client_socket2.connect((machine, PORT2))
                         # Stocker la connexion
                         connexions_phase_2[machine] = client_socket2
-                        print(f"'PHASE 2 {nom_machine}' : Connexion établie avec {machine}")
+                        #print(f"'PHASE 2 {nom_machine}' : Connexion établie avec {machine}")
                     except Exception as e:
                         print(f"Erreur lors de la connexion à {machine}: {e}")
                 message_reçu = recevoir_message(client_socket)
 
         elif message_reçu == "GO PHASE 2":
             print(f"'PHASE 2 {nom_machine}' : Message reçu: {message_reçu}")
-            # SHUFFLE
+            if nom_machine == machines_reçues[0] :
+                print(f"'PHASE 2 {nom_machine}' : Progression pour récupérer tous les mots des différents fichiers :")
+            
+            # Ouvrir les fichiers WET et extraire tous les mots
+            for j, fichierWET in enumerate(fichiersWET_reçues):
+                if fichierWET.endswith('.wet'):
+                    with open('/cal/commoncrawl/' + fichierWET, 'r') as file:
+                        contenuWET = file.read().split()  # Lire le contenu du fichier WET et le stocker dans une variable sous forme de chaîne de caractères
+                    motsWET = motsWET + contenuWET # stocker le contenu de tous les fichiers WET dans une seule variable
+                if nom_machine == machines_reçues[0] :
+                    afficher_barre_progression(j+1, len(fichiersWET_reçues)) # afficher la progression de la première machine
+
+            ####################### SHUFFLE #########################################
+            if nom_machine == machines_reçues[0] :
+                print(f"\n'PHASE 2 {nom_machine}' : Progression du SHUFFLE :")
+            
             for i, mot in enumerate(motsWET):
-                machine_number = len(mot)%len(machines_reçues)
+                machine_number = len(mot)%len(machines_reçues) # pour déterminer la machine à laquelle envoyer le mot par rapport à la longueur du mot
+                #machine_number = i%len(machines_reçues) # pour envoyer les mots équitablement à toutes les machines
                 #print(f"'PHASE 2 {nom_machine}' : Envoi de {mot} à {machines_reçues[machine_number]}")
                 envoyer_message(connexions_phase_2[machines_reçues[machine_number]], mot)
-                # Calculer et afficher le pourcentage de progression
-                pourcentage = (i + 1) / len(motsWET) * 100
-                if pourcentage % 5 == 0: # Afficher le pourcentage de progression toutes les 5% afin de ne pas surcharger la console
-                    print(f"'PHASE 2 {nom_machine}' : Progression du SHUFFLE: {pourcentage:.2f}%")
+                if nom_machine == machines_reçues[0] :
+                    afficher_barre_progression(i+1, len(motsWET)) # afficher la progression de la première machine
 
             while message_reçu !="GO PHASE 3":    
                 envoyer_message(client_socket, "OK PHASE 2")
@@ -201,7 +208,7 @@ def gerer_connexion(client_socket, adresse_client):
             print(f"'PHASE 3 {nom_machine}' : Message reçu: {message_reçu}")
             #print(f"'PHASE 3 {nom_machine}' : Message du Shuffle: {messagePostSuffle}")
             compteur_mots = {}
-            # REDUCE
+            ####################### REDUCE #########################################
             for mot in messagePostSuffle:
                 if mot in compteur_mots:
                     compteur_mots[mot] += 1
@@ -224,22 +231,21 @@ def gerer_connexion(client_socket, adresse_client):
             print(f"'PHASE 4 {nom_machine}' : Message envoyé: OK PHASE 4")
             etat=3 #pour quitter la boucle
              
-
 def gerer_phase_2(client_socket, adresse_client):
-    print(f"'PHASE 2 {nom_machine}' : Gérer phase 2 pour {adresse_client}")
+    #print(f"'PHASE 2 {nom_machine}' : Gérer phase 2 pour {adresse_client}")
     # Recevoir des messages spécifiques dans une boucle
     while True:
         message_reçu = recevoir_message(client_socket)
         #print(f"'PHASE 2 {nom_machine}' : Message reçu: {message_reçu} de {adresse_client}")
         messagePostSuffle.append(message_reçu)
-        
 
 def accepter_connexion_phase1():
-    # Accepter une nouvelle connexion
-    client_socket, adresse_client = serveur_socket.accept()
-    # Créer un thread pour gérer la connexion
-    thread_connexion = threading.Thread(target=gerer_connexion, args=(client_socket, adresse_client))
-    thread_connexion.start()
+    while True:
+        # Accepter une nouvelle connexion
+        client_socket, adresse_client = serveur_socket.accept()
+        # Créer un thread pour gérer la connexion
+        thread_connexion = threading.Thread(target=gerer_connexion, args=(client_socket, adresse_client))
+        thread_connexion.start()
 
 def accepter_connexion_phase2():
     while True:
@@ -248,6 +254,15 @@ def accepter_connexion_phase2():
         # Créer un thread pour gérer la connexion
         thread_connexion = threading.Thread(target=gerer_phase_2, args=(client_socket2, adresse_client))
         thread_connexion.start()
+
+# Fonction pour afficher la barre de progression
+def afficher_barre_progression(iteration, total, longueur=50):
+    pourcentage = (iteration / total) * 100
+    #barre = '█' * int(longueur * iteration // total)
+    #espace = '-' * (longueur - len(barre))
+    #sys.stdout.write(f'\r|{barre}{espace}| {pourcentage:.1f}%')
+    sys.stdout.write(f'\r|{pourcentage:.2f}%')
+    sys.stdout.flush()
 
 # Créer et démarrer le thread pour accepter les connexions
 thread_accepter = threading.Thread(target=accepter_connexion_phase1)

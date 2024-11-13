@@ -2,6 +2,7 @@ import socket
 import json
 import struct
 import threading
+import time # Pour mesurer le temps d'exécution pour la loi d'Amdahl de façon empirique
 
 # Lire les adresses des machines à partir du fichier machines.txt
 with open('machines.txt', 'r') as file:
@@ -12,16 +13,13 @@ machines_json = json.dumps(machines)
 # Lire le nom des fichiers WET à partir du fichier fichiersWET.txt
 with open('fichiersWET.txt', 'r') as file:
     #fichiersWET = [line.strip() for line in file.readlines()]
-    fichiersWET = [line.strip() for line in file.readlines()[:3]] # On prend uniquement les 3 premiers fichiers WET pour tester
+    fichiersWET = [line.strip() for line in file.readlines()[:20]] # On prend uniquement les 20 premiers fichiers WET pour tester
 
 # Tableaux pour stocker les états de fin de chaque phase
 tab_fin_phase_1 = [False]*len(machines)
 tab_fin_phase_2 = [False]*len(machines)
 tab_fin_phase_3 = [False]*len(machines)
 tab_fin_phase_4 = [False]*len(machines)
-
-# Les messages spécifiques à envoyer
-# messages_specifiques = ["un", "bonjour", "depuis", "la", "lune", "la", "lune", "est", "belle"]
 
 # Dictionnaire pour stocker les connexions
 connexions = {}
@@ -56,6 +54,8 @@ def envoyer_message(client_socket, message):
     client_socket.sendall(message_bytes)
 
 def envoyer_messages():
+    global start_time #variable pour enregistrer le temps de début d'execution
+    start_time = time.time()
     #Envoyer la liste des machines à chaque machine
     for machine, client_socket in connexions.items():
         try:
@@ -64,48 +64,21 @@ def envoyer_messages():
         except Exception as e:
             print(f"Erreur lors de l'envoi à {machine}: {e}")
 
-    # Envoyer les messages spécifiques de manière cyclique
-    # for index, message in enumerate(messages_specifiques):
-    #     machine_index = index % len(machines)
-    #     machine = machines[machine_index]
-    #     try:
-    #         client_socket = connexions[machine]
-    #         envoyer_message(client_socket, message)
-    #         print(f"Envoyé '{message}' à {machine}")
-    #     except Exception as e:
-    #         print(f"Erreur lors de l'envoi à {machine}: {e}")
-
-    # Algo de split X
-    # machine = machines[0]
-    # for index, message in enumerate(messages_specifiques):
-    #     if index == (0 or 1 or 2):
-    #         machine = machines[0]
-    #     elif index == (3 or 4):
-    #         machine = machines[1]
-    #     elif index == (5 or 6 or 7 or 8):
-    #         machine = machines[2]
-    #     try:
-    #         client_socket = connexions[machine]
-    #         envoyer_message(client_socket, message)
-    #         print(f"Envoyé '{message}' à {machine}")
-    #     except Exception as e:
-    #         print(f"Erreur lors de l'envoi à {machine}: {e}")
-
-    #Algo de split X pour envoyer les fichiers WET
+    #Algo de split pour envoyer les fichiers WET aux différentes machines
     machine = machines[0]
+    repartition = {machine: [] for machine in machines} # Dictionnaire pour stocker les fichiers assignés à chaque machine
     print(f"Envoi des noms des fichiers WET : ")
     for index, fchWET in enumerate(fichiersWET):
-        if index == 0 :
-            machine = machines[0]
-        elif index == 1 :
-            machine = machines[1]
-        elif index == 2 :
-            machine = machines[2]
+        machine = machines[index % len(machines)]
+        repartition[machine].append(fchWET)
+
+    # Envoyer les fichiers WET à chaque machine
+    for machine, client_socket in connexions.items():
         try:
-            fichierWET_json = json.dumps(fchWET)
-            client_socket = connexions[machine]
+            fichierWET_json = json.dumps(repartition[machine])
             envoyer_message(client_socket, fichierWET_json)
-            print(f"Envoyé '{fchWET}' à {machine}")
+            # print(f"Envoyé '{repartition[machine]}' à {machine}")
+            print(f"Envoyé {len(repartition[machine])} fichiers WET à {machine}")
         except Exception as e:
             print(f"Erreur lors de l'envoi à {machine}: {e}")
 
@@ -189,6 +162,7 @@ def recevoir_messages():
                                 if all(tab_fin_phase_4):
                                     print("Toutes les machines ont fini la phase 4")
                                     print("---------------------------------------")
+                                    lancer_fin_programme()
         except Exception as e:
             print(f"Erreur lors de la réception de {machine}: {e}")
 
@@ -225,6 +199,17 @@ def lancer_phase_4():
         if message_reçu == "OK PHASE 4":
             print(f"Reçu '{message_reçu}' de {machine}")
             tab_fin_phase_4[machines.index(machine)] = True
+
+def lancer_fin_programme():
+    end_time = time.time()
+    execution_time = end_time - start_time # Calcul du temps d'exécution
+    minutes = int(execution_time // 60) # On divise le temps total par 60 pour avoir les minutes
+    seconds = int(execution_time % 60) # On fait un modulo de 60 pour avoir les secondes restantes
+    print(f"Temps d'exécution : {minutes} minutes et {seconds} secondes")
+    print(f"Nombre de fichiers WET : {len(fichiersWET)}")
+    print(f"Nombre de machines : {len(machines)}")
+    print("Fin du programme")
+
 
 # Créer et démarrer les threads pour envoyer et recevoir les messages
 thread_envoi = threading.Thread(target=envoyer_messages)
