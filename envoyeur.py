@@ -13,7 +13,7 @@ machines_json = json.dumps(machines)
 # Lire le nom des fichiers WET à partir du fichier fichiersWET.txt
 with open('fichiersWET.txt', 'r') as file:
     #fichiersWET = [line.strip() for line in file.readlines()]
-    fichiersWET = [line.strip() for line in file.readlines()[:20]] # On prend uniquement les 20 premiers fichiers WET pour tester
+    fichiersWET = [line.strip() for line in file.readlines()[:4]] # On prend uniquement les X premiers fichiers WET pour tester
 
 # Tableaux pour stocker les états de fin de chaque phase
 tab_fin_phase_1 = [False]*len(machines)
@@ -136,46 +136,56 @@ def recevoir_messages():
             if message_reçu == "OK FIN PHASE 1":
                 print(f"Reçu '{message_reçu}' de {machine}")
                 tab_fin_phase_1[machines.index(machine)] = True
+
                 ######################## Phase 2 ########################
                 if all(tab_fin_phase_1):
                     print("Toutes les machines ont fini la phase 1")
                     print("---------------------------------------")
-                    for machine, client_socket in connexions.items():
-                        envoyer_message(client_socket, "GO PHASE 2")
-                        print(f"Envoyé 'GO PHASE 2' à {machine}")
-                    message_reçu = recevoir_message(client_socket)
-                    
-                    if message_reçu == "OK PHASE 2":
-                        for machine, client_socket in connexions.items():
-                            print(f"Reçu '{message_reçu}' de {machine}")
-                            tab_fin_phase_2[machines.index(machine)] = True
-                        ######################## Phase 3 ########################
-                        if all(tab_fin_phase_2):
-                            print("Toutes les machines ont fini la phase 2")
+                    lancer_phase_2()
+
+                    ######################## Phase 3 ########################
+                    if all(tab_fin_phase_2):
+                        print("Toutes les machines ont fini la phase 2")
+                        print("---------------------------------------")
+                        lancer_phase_3()
+
+                        ######################## Phase 4 ########################
+                        if all(tab_fin_phase_3):
+                            print("Toutes les machines ont fini la phase 3")
                             print("---------------------------------------")
-                            lancer_phase_3()
-                            ######################## Phase 4 ########################
-                            if all(tab_fin_phase_3):
-                                print("Toutes les machines ont fini la phase 3")
+                            lancer_phase_4()
+
+                            ######################## Statistiques ########################
+                            if all(tab_fin_phase_4):
+                                print("Toutes les machines ont fini la phase 4")
                                 print("---------------------------------------")
-                                lancer_phase_4()
-                                if all(tab_fin_phase_4):
-                                    print("Toutes les machines ont fini la phase 4")
-                                    print("---------------------------------------")
-                                    lancer_fin_programme()
+                                lancer_fin_programme()
+        
         except Exception as e:
             print(f"Erreur lors de la réception de {machine}: {e}")
+
+
+
+def lancer_phase_2():
+    for machine, client_socket in connexions.items():
+        envoyer_message(client_socket, "GO PHASE 2")
+        print(f"Envoyé 'GO PHASE 2' à {machine}")
+    for machine, client_socket in connexions.items():
+        message_reçu = recevoir_message(client_socket)
+        if message_reçu == "OK PHASE 2":
+            print(f"Reçu '{message_reçu}' de {machine}")
+            tab_fin_phase_2[machines.index(machine)] = True
 
 
 def lancer_phase_3():
     for machine, client_socket in connexions.items():
         envoyer_message(client_socket, "GO PHASE 3")
         print(f"Envoyé 'GO PHASE 3' à {machine}")
+    for machine, client_socket in connexions.items():
         message_reçu = recevoir_message(client_socket)
         if message_reçu == "OK PHASE 3":
-            for machine, client_socket in connexions.items():
-                print(f"Reçu '{message_reçu}' de {machine}")
-                tab_fin_phase_3[machines.index(machine)] = True
+            print(f"Reçu '{message_reçu}' de {machine}")
+            tab_fin_phase_3[machines.index(machine)] = True
                   
 def lancer_phase_4():
     for machine, client_socket in connexions.items():
