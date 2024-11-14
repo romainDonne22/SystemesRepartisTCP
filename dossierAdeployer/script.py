@@ -182,8 +182,8 @@ def gerer_connexion(client_socket, adresse_client):
             for j, fichierWET in enumerate(fichiersWET_reçues):
                 if fichierWET.endswith('.wet'):
                     with open('/cal/commoncrawl/' + fichierWET, 'r') as file:
-                        contenuWET = file.read().split()  # Lire le contenu du fichier WET et le stocker dans une variable sous forme de chaîne de caractères
-                    motsWET = motsWET + contenuWET # stocker le contenu de tous les fichiers WET dans une seule variable
+                        contenuWET.append(file.read())  # Lire le contenu du fichier WET et le stocker dans une variable sous forme de chaîne de caractères
+                    #motsWET = motsWET + contenuWET # stocker le contenu de tous les fichiers WET dans une seule variable
                 if nom_machine == machines_reçues[0] :
                     afficher_barre_progression(j+1, len(fichiersWET_reçues)) # afficher la progression de la première machine
 
@@ -191,13 +191,16 @@ def gerer_connexion(client_socket, adresse_client):
             if nom_machine == machines_reçues[0] :
                 print(f"\n'PHASE 2 {nom_machine}' : Progression du SHUFFLE :")
             
-            for i, mot in enumerate(motsWET):
-                machine_number = len(mot)%len(machines_reçues) # pour déterminer la machine à laquelle envoyer le mot par rapport à la longueur du mot
-                #machine_number = i%len(machines_reçues) # pour envoyer les mots équitablement à toutes les machines
-                #print(f"'PHASE 2 {nom_machine}' : Envoi de {mot} à {machines_reçues[machine_number]}")
-                envoyer_message(connexions_phase_2[machines_reçues[machine_number]], mot)
-                if nom_machine == machines_reçues[0] :
-                    afficher_barre_progression(i+1, len(motsWET)) # afficher la progression de la première machine
+            !!changerlePrint
+            for contenu in contenuWET:
+                motsWET = contenu.split()
+                for i, mot in enumerate(motsWET):
+                    machine_number = len(mot)%len(machines_reçues) # pour déterminer la machine à laquelle envoyer le mot par rapport à la longueur du mot
+                    #machine_number = i%len(machines_reçues) # pour envoyer les mots équitablement à toutes les machines
+                    #print(f"'PHASE 2 {nom_machine}' : Envoi de {mot} à {machines_reçues[machine_number]}")
+                    envoyer_message(connexions_phase_2[machines_reçues[machine_number]], mot)
+                    if nom_machine == machines_reçues[0] :
+                        afficher_barre_progression(i+1, len(motsWET)) # afficher la progression de la première machine
 
             while message_reçu !="GO PHASE 3":    
                 envoyer_message(client_socket, "OK PHASE 2")
