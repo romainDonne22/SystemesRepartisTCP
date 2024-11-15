@@ -54,16 +54,13 @@ def envoyer_messages():
             print(f"Erreur lors de l'envoi à {machine}: {e}")
 
 def recevoir_exactement(client_socket, n):
-    client_socket.settimeout(100000)
     data = b''
     while len(data) < n:
         try:
             packet = client_socket.recv(n - len(data))
             if not packet:
-                print("Aucun paquet reçu, attente avant de réessayer...")
-                time.sleep(10)  # Attendre avant de réessayer
-            else:
-                data += packet
+                raise ConnectionError("Connexion fermée par le client")
+            data += packet
         except ConnectionError as e:
             print(f"Erreur de connexion: {e}")
             return None
@@ -73,18 +70,14 @@ def recevoir_exactement(client_socket, n):
         except Exception as e:
             print(f"Erreur lors de la réception des données: {e}")
             return None
-    client_socket.settimeout(None)
     return data
 
 def recevoir_message(client_socket):
-    # Définir le timeout pour le socket
-    client_socket.settimeout(10000)
     # Recevoir la taille du message
     taille_message = struct.unpack('!I', recevoir_exactement(client_socket, 4))[0]
     # Recevoir le message en utilisant la taille
     data = recevoir_exactement(client_socket, taille_message)
     # Réinitialiser le timeout à None pour désactiver le timeout
-    client_socket.settimeout(None)
     return data.decode('utf-8')
 
 def recevoir_message_dict(client_socket):
@@ -93,22 +86,17 @@ def recevoir_message_dict(client_socket):
         taille_message = client_socket.recv(4)
         if not taille_message:
             raise ConnectionError("Connexion fermée lors de la réception de la taille du message.")
-        
         taille_message = int.from_bytes(taille_message, byteorder='big')
-        
         # Recevoir le message complet
         data = recevoir_exactement(client_socket, taille_message)
         if not data:
             raise ConnectionError("Connexion fermée lors de la réception du message.")
-        
         # Convertir la chaîne JSON en dictionnaire
         message_dict = json.loads(data.decode('utf-8'))
-        
         return message_dict
     except Exception as e:
         print(f"Erreur lors de la réception du message: {e}")
         return None
-
 
 def recevoir_messages():
     for machine, client_socket in connexions.items():
@@ -145,8 +133,6 @@ def recevoir_messages():
         except Exception as e:
             print(f"Erreur lors de la réception de {machine}: {e}")
 
-
-
 def lancer_phase_2():
     for machine, client_socket in connexions.items():
         envoyer_message(client_socket, "GO PHASE 2")
@@ -156,7 +142,6 @@ def lancer_phase_2():
         if message_reçu == "OK PHASE 2":
             print(f"Reçu '{message_reçu}' de {machine}")
             tab_fin_phase_2[machines.index(machine)] = True
-
 
 def lancer_phase_3():
     for machine, client_socket in connexions.items():

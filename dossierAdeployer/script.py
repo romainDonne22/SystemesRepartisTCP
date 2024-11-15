@@ -104,24 +104,14 @@ def recevoir_message(client_socket):
 
 def envoyer_message(client_socket, message):
     try:
-        # Taille des morceaux (chunks) à envoyer
-        chunk_size=4096 
         # Convertir le message en bytes
         message_bytes = message.encode('utf-8')
         # Obtenir la taille du message
         taille_message = len(message_bytes)
         # Convertir la taille en 4 octets
         taille_message_bytes = struct.pack('!I', taille_message)
-        # Envoyer la taille du message
-        client_socket.sendall(taille_message_bytes)
-        # Envoyer le message en morceaux (chunks)
-        total_envoye = 0
-        while total_envoye < taille_message:
-            chunk = message_bytes[total_envoye:total_envoye + chunk_size]
-            envoye = client_socket.send(chunk)
-            if envoye == 0:
-                raise RuntimeError("La connexion a été fermée")
-            total_envoye += envoye
+        # Envoyer la taille du message suivie du message
+        client_socket.sendall(taille_message_bytes + message_bytes)
     except BrokenPipeError:
         print("Erreur: Broken pipe. La connexion a été fermée par l'autre côté.")
     except Exception as e:
@@ -193,7 +183,7 @@ def gerer_connexion(client_socket, adresse_client):
                 if fichierWET.endswith('.wet'):
                     with open('/cal/commoncrawl/' + fichierWET, 'r') as file:
                         contenuWET = file.read()
-                        motsWET.extend(contenuWET.split())
+                    motsWET.extend(contenuWET.split())
                     for i, mot in enumerate(motsWET):
                         machine_number = len(mot)%len(machines_reçues) # pour déterminer la machine à laquelle envoyer le mot par rapport à la longueur du mot
                         envoyer_message(connexions_phase_2[machines_reçues[machine_number]], mot)
