@@ -88,7 +88,7 @@ def recevoir_exactement(client_socket, n):
 
 def recevoir_message(client_socket):
     # Recevoir la taille du message
-    taille_message_bytes = recevoir_exactement(client_socket, 4)
+    taille_message_bytes = recevoir_exactement(client_socket, 4) # 4 octets pour la taille du message
     if taille_message_bytes is None:
         print("Connexion fermée lors de la réception de la taille du message.")
         return None
@@ -104,12 +104,24 @@ def recevoir_message(client_socket):
 
 def envoyer_message(client_socket, message):
     try:
-        # Encoder le message en UTF-8
+        # Taille des morceaux (chunks) à envoyer
+        chunk_size=4096 
+        # Convertir le message en bytes
         message_bytes = message.encode('utf-8')
-        # Envoyer la taille du message d'abord
-        client_socket.sendall(len(message_bytes).to_bytes(4, byteorder='big'))
-        # Envoyer le message
-        client_socket.sendall(message_bytes)
+        # Obtenir la taille du message
+        taille_message = len(message_bytes)
+        # Convertir la taille en 4 octets
+        taille_message_bytes = struct.pack('!I', taille_message)
+        # Envoyer la taille du message
+        client_socket.sendall(taille_message_bytes)
+        # Envoyer le message en morceaux (chunks)
+        total_envoye = 0
+        while total_envoye < taille_message:
+            chunk = message_bytes[total_envoye:total_envoye + chunk_size]
+            envoye = client_socket.send(chunk)
+            if envoye == 0:
+                raise RuntimeError("La connexion a été fermée")
+            total_envoye += envoye
     except BrokenPipeError:
         print("Erreur: Broken pipe. La connexion a été fermée par l'autre côté.")
     except Exception as e:
@@ -125,13 +137,13 @@ def envoyer_message_liste(client_socket, message_liste):
         print(f"Erreur lors de l'envoi du message: {e}")
 
 def gerer_connexion(client_socket, adresse_client):
-    # Variaables :
+    # Variables :
     nb_message=0 #pour compter le nombre de messages reçus
     etat=1 #pour gérer les étapes
     machines_reçues=[] # Créer une liste vide pour stocker le nom des machines reçues
     fichiersWET_reçues = [] # Créer une liste vide pour stocker les noms des fichiers WET reçus
-    contenuWET = []
-    motsWET = [] # Créer une liste vide pour stocker tous les mots des fichiers WET
+    contenuWET = [] # Créer une liste vide pour stocker le contenu des fichiers WET, pas encore splité en mots
+    motsWET = [] # Créer une liste vide pour stocker tous les mots des fichiers WET une fois splités
     
     print(f"'{nom_machine}' : Connexion acceptée de {adresse_client}")
     connexions[adresse_client] = client_socket #stocker la connexion
@@ -176,25 +188,18 @@ def gerer_connexion(client_socket, adresse_client):
         elif message_reçu == "GO PHASE 2":
             print(f"'PHASE 2 {nom_machine}' : Message reçu: {message_reçu}")
             
-            # Ouvrir les fichiers WET et extraire tous les mots
+            ################  Ouvrir les fichiers WET extraire les mots et faire le shuffle ############################
             for j, fichierWET in enumerate(fichiersWET_reçues):
                 if fichierWET.endswith('.wet'):
                     with open('/cal/commoncrawl/' + fichierWET, 'r') as file:
                         contenuWET = file.read()
                         motsWET.extend(contenuWET.split())
-                    afficher_barre_progression(j+1, len(fichiersWET_reçues), f"Extraire les mots {nom_machine}") # afficher la progression de la première machine
-            print(f"\n") # pour affichage de toutes les progressions
-            ####################### SHUFFLE #########################################
-            
-
-            for i, mot in enumerate(motsWET):
-                machine_number = len(mot)%len(machines_reçues) # pour déterminer la machine à laquelle envoyer le mot par rapport à la longueur du mot
-                #machine_number = i%len(machines_reçues) # pour envoyer les mots équitablement à toutes les machines
-                #print(f"'PHASE 2 {nom_machine}' : Envoi de {mot} à {machines_reçues[machine_number]}")
-                envoyer_message(connexions_phase_2[machines_reçues[machine_number]], mot)
-                if nom_machine == machines_reçues[0] and i%1000 == 0:
-                    afficher_barre_progression(i+1, len(motsWET), f"Progression du SHUFFLE") # afficher la progression de la première machine
-            print(f"\n") # pour affichage de toutes les progressions
+                    for i, mot in enumerate(motsWET):
+                        machine_number = len(mot)%len(machines_reçues) # pour déterminer la machine à laquelle envoyer le mot par rapport à la longueur du mot
+                        envoyer_message(connexions_phase_2[machines_reçues[machine_number]], mot)
+                        if nom_machine == machines_reçues[0] and i%(100000) == 0: # le modulo permet de ne pas afficher chaque mot afin de ne pas surcharger la console
+                            afficher_barre_progression(i+1, len(motsWET), f"'PHASE 2 {nom_machine}' : FICHIER {j+1}/{len(fichiersWET_reçues)} SHUFFLE") # afficher la progression de la première machine uniquement (c'est celle qui a le plus de fichiers .wet)
+                    motsWET = [] # Vider la liste des mots pour le prochain fichier WET           
 
             while message_reçu !="GO PHASE 3":    
                 envoyer_message(client_socket, "OK PHASE 2")
@@ -203,9 +208,8 @@ def gerer_connexion(client_socket, adresse_client):
             
         elif message_reçu == "GO PHASE 3": 
             print(f"'PHASE 3 {nom_machine}' : Message reçu: {message_reçu}")
-            #print(f"'PHASE 3 {nom_machine}' : Message du Shuffle: {messagePostSuffle}")
-            compteur_mots = {}
             ####################### REDUCE #########################################
+            compteur_mots = {} # Créer un dictionnaire vide pour compter les mots
             for mot in messagePostSuffle:
                 if mot in compteur_mots:
                     compteur_mots[mot] += 1
@@ -254,11 +258,11 @@ def accepter_connexion_phase2():
 
 # Fonction pour afficher la barre de progression
 def afficher_barre_progression(iteration, total, texte):
+    longueur = 50
     pourcentage = (iteration / total) * 100
-    #barre = '█' * int(longueur * iteration // total)
-    #espace = '-' * (longueur - len(barre))
-    #sys.stdout.write(f'\r|{barre}{espace}| {pourcentage:.1f}%')
-    sys.stdout.write(f'\r{texte} | {pourcentage:.1f}%')
+    barre = '█' * int(longueur * iteration // total)
+    espace = '-' * (longueur - len(barre))
+    sys.stdout.write(f'\r{texte} |{barre}{espace}| {pourcentage:.2f}%')
     sys.stdout.flush()
 
 # Créer et démarrer le thread pour accepter les connexions

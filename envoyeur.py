@@ -4,41 +4,6 @@ import struct
 import threading
 import time # Pour mesurer le temps d'exécution pour la loi d'Amdahl de façon empirique
 
-# Lire les adresses des machines à partir du fichier machines.txt
-with open('machines.txt', 'r') as file:
-    machines = [line.strip() for line in file.readlines()]
-# Convertir la liste des machines en JSON
-machines_json = json.dumps(machines)
-
-# Lire le nom des fichiers WET à partir du fichier fichiersWET.txt
-with open('fichiersWET.txt', 'r') as file:
-    #fichiersWET = [line.strip() for line in file.readlines()]
-    fichiersWET = [line.strip() for line in file.readlines()[:4]] # On prend uniquement les X premiers fichiers WET pour tester
-
-# Tableaux pour stocker les états de fin de chaque phase
-tab_fin_phase_1 = [False]*len(machines)
-tab_fin_phase_2 = [False]*len(machines)
-tab_fin_phase_3 = [False]*len(machines)
-tab_fin_phase_4 = [False]*len(machines)
-
-# Dictionnaire pour stocker les connexions
-connexions = {}
-
-# Créer les connexions à toutes les machines
-for machine in machines:
-    try:
-        # Créer un socket TCP/IP
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        
-        # Se connecter à la machine
-        client_socket.connect((machine, 4444))
-        
-        # Stocker la connexion
-        connexions[machine] = client_socket
-        print(f"Connexion établie avec {machine}")
-    except Exception as e:
-        print(f"Erreur lors de la connexion à {machine}: {e}")
-
 def envoyer_message(client_socket, message):
     # Convertir le message en bytes
     message_bytes = message.encode('utf-8')
@@ -67,7 +32,6 @@ def envoyer_messages():
     #Algo de split pour envoyer les fichiers WET aux différentes machines
     machine = machines[0]
     repartition = {machine: [] for machine in machines} # Dictionnaire pour stocker les fichiers assignés à chaque machine
-    print(f"Envoi des noms des fichiers WET : ")
     for index, fchWET in enumerate(fichiersWET):
         machine = machines[index % len(machines)]
         repartition[machine].append(fchWET)
@@ -77,7 +41,6 @@ def envoyer_messages():
         try:
             fichierWET_json = json.dumps(repartition[machine])
             envoyer_message(client_socket, fichierWET_json)
-            # print(f"Envoyé '{repartition[machine]}' à {machine}")
             print(f"Envoyé {len(repartition[machine])} fichiers WET à {machine}")
         except Exception as e:
             print(f"Erreur lors de l'envoi à {machine}: {e}")
@@ -91,19 +54,37 @@ def envoyer_messages():
             print(f"Erreur lors de l'envoi à {machine}: {e}")
 
 def recevoir_exactement(client_socket, n):
+    client_socket.settimeout(100000)
     data = b''
     while len(data) < n:
-        packet = client_socket.recv(n - len(data))
-        if not packet:
-            raise ConnectionError("Connexion fermée par le client")
-        data += packet
+        try:
+            packet = client_socket.recv(n - len(data))
+            if not packet:
+                print("Aucun paquet reçu, attente avant de réessayer...")
+                time.sleep(10)  # Attendre avant de réessayer
+            else:
+                data += packet
+        except ConnectionError as e:
+            print(f"Erreur de connexion: {e}")
+            return None
+        except socket.timeout:
+            print("Erreur: Timeout lors de la réception des données")
+            return None
+        except Exception as e:
+            print(f"Erreur lors de la réception des données: {e}")
+            return None
+    client_socket.settimeout(None)
     return data
 
 def recevoir_message(client_socket):
+    # Définir le timeout pour le socket
+    client_socket.settimeout(10000)
     # Recevoir la taille du message
     taille_message = struct.unpack('!I', recevoir_exactement(client_socket, 4))[0]
     # Recevoir le message en utilisant la taille
     data = recevoir_exactement(client_socket, taille_message)
+    # Réinitialiser le timeout à None pour désactiver le timeout
+    client_socket.settimeout(None)
     return data.decode('utf-8')
 
 def recevoir_message_dict(client_socket):
@@ -197,13 +178,13 @@ def lancer_phase_4():
         while message_recu == "OK PHASE 3":
             message_recu = recevoir_message(client_socket)
         #print(f"Reçu '{message_recu}' de {machine}")
-        # Enregistrer la liste dans un fichier texte par machine
-        with open(f'output/resultats_phase_4_{machine}.txt', 'w') as fichier:
+        # Enregistrer la liste dans un fichier csv par machine
+        with open(f'output/resultats_phase_4_{machine}.csv', 'w') as fichier:
             #for element in message_recu:
                 #fichier.write(f"{element}\n")
             mots = message_recu.split(', "') # On sépare les mots après chaque virgule et guillemet - donc après la valeur
             fichier.write(f"{mots}\n") # On écrit les mots dans le fichier en sautant une ligne
-        print(f"Liste enregistrée dans 'resultats_phase_4_{machine}.txt'")
+        print(f"Liste enregistrée dans 'resultats_phase_4_{machine}.csv'")
     for machine, client_socket in connexions.items(): 
         message_reçu = recevoir_message(client_socket)
         if message_reçu == "OK PHASE 4":
@@ -221,10 +202,50 @@ def lancer_fin_programme():
     print("Fin du programme")
 
 
+
+
+
+# L'utilisateur rensigne le nombre de fichiers WET à traiter et le nombre de machines à utiliser
+nbfichiers = int(input("Nombre de fichiers WET à traiter ? [Entrez un nombre entier] : "))
+nbmachines = int(input("Nombre de machines à utiliser ? [Entrez un nombre entier, 30 au maximum] : "))
+
+# Lire les adresses des machines à partir du fichier machines.txt
+with open('machines.txt', 'r') as file:
+    machines = [line.strip() for line in file.readlines()[:nbmachines]]
+machines_json = json.dumps(machines) # Convertir la liste des machines en JSON
+
+# Lire le nom des fichiers WET à partir du fichier fichiersWET.txt
+with open('fichiersWET.txt', 'r') as file:
+    fichiersWET = [line.strip() for line in file.readlines()[:nbfichiers]] 
+
+# Tableaux pour stocker les états de fin de chaque phase
+tab_fin_phase_1 = [False]*len(machines)
+tab_fin_phase_2 = [False]*len(machines)
+tab_fin_phase_3 = [False]*len(machines)
+tab_fin_phase_4 = [False]*len(machines)
+
+# Dictionnaire pour stocker les connexions
+connexions = {}
+
+# Créer les connexions à toutes les machines
+for machine in machines:
+    try:
+        # Créer un socket TCP/IP
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        
+        # Se connecter à la machine
+        client_socket.connect((machine, 4444))
+        
+        # Stocker la connexion
+        connexions[machine] = client_socket
+        print(f"Connexion établie avec {machine}")
+    except Exception as e:
+        print(f"Erreur lors de la connexion à {machine}: {e}")
+
+
 # Créer et démarrer les threads pour envoyer et recevoir les messages
 thread_envoi = threading.Thread(target=envoyer_messages)
 thread_reception = threading.Thread(target=recevoir_messages)
-
 thread_envoi.start()
 thread_reception.start()
 
