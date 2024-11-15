@@ -92,9 +92,7 @@ def recevoir_message(client_socket):
     if taille_message_bytes is None:
         print("Connexion fermée lors de la réception de la taille du message.")
         return None
-
     taille_message = struct.unpack('!I', taille_message_bytes)[0]
-
     # Recevoir le message en utilisant la taille
     data = recevoir_exactement(client_socket, taille_message)
     if data is None:
@@ -134,7 +132,8 @@ def gerer_connexion(client_socket, adresse_client):
     fichiersWET_reçues = [] # Créer une liste vide pour stocker les noms des fichiers WET reçus
     contenuWET = [] # Créer une liste vide pour stocker le contenu des fichiers WET, pas encore splité en mots
     motsWET = [] # Créer une liste vide pour stocker tous les mots des fichiers WET une fois splités
-    
+    motsWET_json = [] # Créer une liste vide pour stocker tous les mots des fichiers WET une fois splités au format json
+
     print(f"'{nom_machine}' : Connexion acceptée de {adresse_client}")
     connexions[adresse_client] = client_socket #stocker la connexion
 
@@ -176,20 +175,20 @@ def gerer_connexion(client_socket, adresse_client):
                 message_reçu = recevoir_message(client_socket)
 
         elif message_reçu == "GO PHASE 2":
-            print(f"'PHASE 2 {nom_machine}' : Message reçu: {message_reçu}")
-            
             ################  Ouvrir les fichiers WET extraire les mots et faire le shuffle ############################
+            print(f"'PHASE 2 {nom_machine}' : Message reçu: {message_reçu}")
             for j, fichierWET in enumerate(fichiersWET_reçues):
-                if fichierWET.endswith('.wet'):
+                if fichierWET.endswith('.wet'): # quelques fichiers ne sont pas des fichiers WET on ne les prend pas en compte
                     with open('/cal/commoncrawl/' + fichierWET, 'r') as file:
                         contenuWET = file.read()
-                    motsWET.extend(contenuWET.split())
-                    for i, mot in enumerate(motsWET):
-                        machine_number = len(mot)%len(machines_reçues) # pour déterminer la machine à laquelle envoyer le mot par rapport à la longueur du mot
-                        envoyer_message(connexions_phase_2[machines_reçues[machine_number]], mot)
-                        if nom_machine == machines_reçues[0] and i%(100000) == 0: # le modulo permet de ne pas afficher chaque mot afin de ne pas surcharger la console
-                            afficher_barre_progression(i+1, len(motsWET), f"'PHASE 2 {nom_machine}' : FICHIER {j+1}/{len(fichiersWET_reçues)} SHUFFLE") # afficher la progression de la première machine uniquement (c'est celle qui a le plus de fichiers .wet)
-                    motsWET = [] # Vider la liste des mots pour le prochain fichier WET           
+                    for i, machine in enumerate(machines_reçues):
+                        motsWET.extend([mot for mot in contenuWET.split() if len(mot)%len(machines_reçues) == i]) # Splitter le contenu du fichier WET en mots et les ajouter à la liste des mots si la longueur du mot est divisible par le nombre de machines
+                        motsWET_json = json.dumps(motsWET)
+                        envoyer_message(connexions_phase_2[machine], motsWET_json) # Envoyer les mots i à la machine i 
+                        motsWET = [] # Vider la liste des mots pour le prochain envoi
+                        motsWET_json = [] # Vider la liste des mots en JSON pour le prochain envoi
+                        progression = progression+1 # Incrémenter la progression
+                        afficher_barre_progression(progression, len(fichiersWET_reçues)*len(machines_reçues), "'PHASE 2' : SHUFFLE en cours  ") # Afficher la progression
 
             while message_reçu !="GO PHASE 3":    
                 envoyer_message(client_socket, "OK PHASE 2")
@@ -197,10 +196,13 @@ def gerer_connexion(client_socket, adresse_client):
                 message_reçu = recevoir_message(client_socket)
             
         elif message_reçu == "GO PHASE 3": 
-            print(f"'PHASE 3 {nom_machine}' : Message reçu: {message_reçu}")
             ####################### REDUCE #########################################
+            print(f"'PHASE 3 {nom_machine}' : Message reçu: {message_reçu}")
             compteur_mots = {} # Créer un dictionnaire vide pour compter les mots
-            for mot in messagePostSuffle:
+            mots = [] # Créer une liste vide pour stocker les mots
+            for chaine in messagePostSuffle:
+                mots.extend(chaine.split())
+            for mot in mots:
                 if mot in compteur_mots:
                     compteur_mots[mot] += 1
                 else:
@@ -221,12 +223,13 @@ def gerer_connexion(client_socket, adresse_client):
             envoyer_message(client_socket, "OK PHASE 4")
             print(f"'PHASE 4 {nom_machine}' : Message envoyé: OK PHASE 4")
             etat=3 #pour quitter la boucle
+            thread_accepter.join() #tuer le thread
              
-def gerer_phase_2(client_socket, adresse_client):
+def gerer_phase_2(client_socket2, adresse_client):
     #print(f"'PHASE 2 {nom_machine}' : Gérer phase 2 pour {adresse_client}")
     # Recevoir des messages spécifiques dans une boucle
     while True:
-        message_reçu = recevoir_message(client_socket)
+        message_reçu = recevoir_message(client_socket2)
         #print(f"'PHASE 2 {nom_machine}' : Message reçu: {message_reçu} de {adresse_client}")
         messagePostSuffle.append(message_reçu)
 

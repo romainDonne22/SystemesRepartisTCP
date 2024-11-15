@@ -182,6 +182,7 @@ def lancer_fin_programme():
     minutes = int(execution_time // 60) # On divise le temps total par 60 pour avoir les minutes
     seconds = int(execution_time % 60) # On fait un modulo de 60 pour avoir les secondes restantes
     print(f"Temps d'exécution : {minutes} minutes et {seconds} secondes")
+    print(f"Temps d'exécution : {execution_time} secondes")
     print(f"Nombre de fichiers WET : {len(fichiersWET)}")
     print(f"Nombre de machines : {len(machines)}")
     print("Fin du programme")
