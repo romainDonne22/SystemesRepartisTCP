@@ -3,6 +3,7 @@ import json
 import struct
 import threading
 import time # Pour mesurer le temps d'exécution pour la loi d'Amdahl de façon empirique
+import sys
 
 def envoyer_message(client_socket, message):
     # Convertir le message en bytes
@@ -99,39 +100,39 @@ def recevoir_message_dict(client_socket):
         return None
 
 def recevoir_messages():
+    try:
+        while True:
+            if not all(tab_fin_phase_1):
+                lancer_phase_1()
+            ######################## Phase 2 ########################
+            elif all(tab_fin_phase_1) and not all(tab_fin_phase_2):
+                print("Toutes les machines ont fini la phase 1")
+                print("---------------------------------------")
+                lancer_phase_2()
+            ######################## Phase 3 ########################
+            elif all(tab_fin_phase_2) and not all(tab_fin_phase_3):
+                print("Toutes les machines ont fini la phase 2")
+                print("---------------------------------------")
+                lancer_phase_3()
+            ######################## Phase 4 ########################
+            elif all(tab_fin_phase_3) and not all(tab_fin_phase_4):
+                print("Toutes les machines ont fini la phase 3")
+                print("---------------------------------------")
+                lancer_phase_4()
+            ######################## Statistiques ###################
+            elif all(tab_fin_phase_4):
+                print("Toutes les machines ont fini la phase 4")
+                print("---------------------------------------")
+                lancer_fin_programme()
+    except Exception as e:
+        print(f"Erreur lors de la réception de {machine}: {e}")
+
+def lancer_phase_1():
     for machine, client_socket in connexions.items():
-        try:
-            message_reçu = recevoir_message(client_socket)
-            if message_reçu == "OK FIN PHASE 1":
-                print(f"Reçu '{message_reçu}' de {machine}")
-                tab_fin_phase_1[machines.index(machine)] = True
-
-                ######################## Phase 2 ########################
-                if all(tab_fin_phase_1):
-                    print("Toutes les machines ont fini la phase 1")
-                    print("---------------------------------------")
-                    lancer_phase_2()
-
-                    ######################## Phase 3 ########################
-                    if all(tab_fin_phase_2):
-                        print("Toutes les machines ont fini la phase 2")
-                        print("---------------------------------------")
-                        lancer_phase_3()
-
-                        ######################## Phase 4 ########################
-                        if all(tab_fin_phase_3):
-                            print("Toutes les machines ont fini la phase 3")
-                            print("---------------------------------------")
-                            lancer_phase_4()
-
-                            ######################## Statistiques ########################
-                            if all(tab_fin_phase_4):
-                                print("Toutes les machines ont fini la phase 4")
-                                print("---------------------------------------")
-                                lancer_fin_programme()
-        
-        except Exception as e:
-            print(f"Erreur lors de la réception de {machine}: {e}")
+        message_reçu = recevoir_message(client_socket)
+        if message_reçu == "OK FIN PHASE 1":
+            print(f"Reçu '{message_reçu}' de {machine}")
+            tab_fin_phase_1[machines.index(machine)] = True
 
 def lancer_phase_2():
     for machine, client_socket in connexions.items():
@@ -182,13 +183,11 @@ def lancer_fin_programme():
     minutes = int(execution_time // 60) # On divise le temps total par 60 pour avoir les minutes
     seconds = int(execution_time % 60) # On fait un modulo de 60 pour avoir les secondes restantes
     print(f"Temps d'exécution : {minutes} minutes et {seconds} secondes")
-    print(f"Temps d'exécution : {execution_time} secondes")
+    print(f"Soit en secondes : {int(execution_time)} secondes")
     print(f"Nombre de fichiers WET : {len(fichiersWET)}")
     print(f"Nombre de machines : {len(machines)}")
     print("Fin du programme")
-
-
-
+    sys.exit()
 
 
 # L'utilisateur rensigne le nombre de fichiers WET à traiter et le nombre de machines à utiliser
@@ -218,16 +217,13 @@ for machine in machines:
     try:
         # Créer un socket TCP/IP
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        
         # Se connecter à la machine
         client_socket.connect((machine, 4444))
-        
         # Stocker la connexion
         connexions[machine] = client_socket
         print(f"Connexion établie avec {machine}")
     except Exception as e:
         print(f"Erreur lors de la connexion à {machine}: {e}")
-
 
 # Créer et démarrer les threads pour envoyer et recevoir les messages
 thread_envoi = threading.Thread(target=envoyer_messages)

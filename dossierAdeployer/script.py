@@ -133,6 +133,7 @@ def gerer_connexion(client_socket, adresse_client):
     contenuWET = [] # Créer une liste vide pour stocker le contenu des fichiers WET, pas encore splité en mots
     motsWET = [] # Créer une liste vide pour stocker tous les mots des fichiers WET une fois splités
     motsWET_json = [] # Créer une liste vide pour stocker tous les mots des fichiers WET une fois splités au format json
+    progression = 0 # Initialiser la progression du shuffle à 0
 
     print(f"'{nom_machine}' : Connexion acceptée de {adresse_client}")
     connexions[adresse_client] = client_socket #stocker la connexion
@@ -188,7 +189,7 @@ def gerer_connexion(client_socket, adresse_client):
                         motsWET = [] # Vider la liste des mots pour le prochain envoi
                         motsWET_json = [] # Vider la liste des mots en JSON pour le prochain envoi
                         progression = progression+1 # Incrémenter la progression
-                        afficher_barre_progression(progression, len(fichiersWET_reçues)*len(machines_reçues), "'PHASE 2' : SHUFFLE en cours  ") # Afficher la progression
+                        afficher_barre_progression(progression, len(fichiersWET_reçues)*len(machines_reçues), "'PHASE 2' : SHUFFLE en cours ") # Afficher la progression
 
             while message_reçu !="GO PHASE 3":    
                 envoyer_message(client_socket, "OK PHASE 2")
@@ -222,8 +223,8 @@ def gerer_connexion(client_socket, adresse_client):
             envoyer_message_liste(client_socket, liste) 
             envoyer_message(client_socket, "OK PHASE 4")
             print(f"'PHASE 4 {nom_machine}' : Message envoyé: OK PHASE 4")
-            etat=3 #pour quitter la boucle
-            thread_accepter.join() #tuer le thread
+            sys.exit()  # Terminer le programme proprement
+            
              
 def gerer_phase_2(client_socket2, adresse_client):
     #print(f"'PHASE 2 {nom_machine}' : Gérer phase 2 pour {adresse_client}")
@@ -231,7 +232,7 @@ def gerer_phase_2(client_socket2, adresse_client):
     while True:
         message_reçu = recevoir_message(client_socket2)
         #print(f"'PHASE 2 {nom_machine}' : Message reçu: {message_reçu} de {adresse_client}")
-        messagePostSuffle.append(message_reçu)
+        messagePostSuffle.extend(message_reçu)
 
 def accepter_connexion_phase1():
     while True:
@@ -258,9 +259,24 @@ def afficher_barre_progression(iteration, total, texte):
     sys.stdout.write(f'\r{texte} |{barre}{espace}| {pourcentage:.2f}%')
     sys.stdout.flush()
 
+def memoire_disponible():
+    while True:
+        with open('/proc/meminfo', 'r') as f:
+            meminfo = f.read()
+        # Extraire la mémoire disponible
+        for line in meminfo.split('\n'):
+            if 'MemAvailable:' in line:
+                mem_disponible = int(line.split()[1]) / 1024  # Convertir en Mo
+                if mem_disponible < 100:
+                    print(f"'{nom_machine}' : Mémoire disponible trop faible: {mem_disponible:.2f} Mo")
+                    print(f"'{nom_machine}' : Arrêt du programme!!!!! Merci de relancer celui-ci avec plus de machines")
+                    sys.exit()
+        time.sleep(5)  # Attendre 5 secondes avant de vérifier à nouveau
+
 # Créer et démarrer le thread pour accepter les connexions
 thread_accepter = threading.Thread(target=accepter_connexion_phase1)
 thread_accepter.start()
 
-# Attendre que les threads se terminent (ce qui n'arrivera probablement jamais)
-thread_accepter.join()
+# Créer et démarrer le thread pour vérifier la mémoire disponible
+thread_memoire = threading.Thread(target=memoire_disponible)
+thread_memoire.start()
