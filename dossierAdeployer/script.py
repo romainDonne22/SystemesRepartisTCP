@@ -133,7 +133,8 @@ def gerer_connexion(client_socket, adresse_client):
     contenuWET = [] # Créer une liste vide pour stocker le contenu des fichiers WET, pas encore splité en mots
     motsWET = [] # Créer une liste vide pour stocker tous les mots des fichiers WET une fois splités
     motsWET_json = [] # Créer une liste vide pour stocker tous les mots des fichiers WET une fois splités au format json
-    progression = 0 # Initialiser la progression du shuffle à 0
+    progressionShuffle = 0 # Initialiser la progression du shuffle à 0
+    progressionReduce = 0 # Initialiser la progression du reduce à 0
 
     print(f"'{nom_machine}' : Connexion acceptée de {adresse_client}")
     connexions[adresse_client] = client_socket #stocker la connexion
@@ -188,8 +189,8 @@ def gerer_connexion(client_socket, adresse_client):
                         envoyer_message(connexions_phase_2[machine], motsWET_json) # Envoyer les mots i à la machine i 
                         motsWET = [] # Vider la liste des mots pour le prochain envoi
                         motsWET_json = [] # Vider la liste des mots en JSON pour le prochain envoi
-                        progression = progression+1 # Incrémenter la progression
-                        afficher_barre_progression(progression, len(fichiersWET_reçues)*len(machines_reçues), "'PHASE 2' : SHUFFLE en cours ") # Afficher la progression
+                        progressionShuffle = progressionShuffle+1 # Incrémenter la progression
+                        afficher_barre_progression(progressionShuffle, len(fichiersWET_reçues)*len(machines_reçues), "'PHASE 2' : SHUFFLE en cours ") # Afficher la progression
 
             while message_reçu !="GO PHASE 3":    
                 envoyer_message(client_socket, "OK PHASE 2")
@@ -208,6 +209,10 @@ def gerer_connexion(client_socket, adresse_client):
                     compteur_mots[mot] += 1
                 else:
                     compteur_mots[mot] = 1
+                progressionReduce = progressionReduce+1 # Incrémenter la progression
+                if progressionReduce % 1000000 == 0: # Afficher la progression tous les 1 000 000 mots pour ne pas surcharger la console
+                    afficher_barre_progression(progressionReduce+1, len(mots), "'PHASE 3' : REDUCE en cours ") # Afficher la progression du reduce
+            
             envoyer_message(client_socket, "OK PHASE 3")
             print(f"'PHASE 3 {nom_machine}' : Message envoyé: OK PHASE 3")
             while message_reçu !="GO PHASE 4":
@@ -223,6 +228,13 @@ def gerer_connexion(client_socket, adresse_client):
             envoyer_message_liste(client_socket, liste) 
             envoyer_message(client_socket, "OK PHASE 4")
             print(f"'PHASE 4 {nom_machine}' : Message envoyé: OK PHASE 4")
+            while message_reçu !="Kill":
+                message_reçu = recevoir_message(client_socket)
+        
+        elif message_reçu == "Kill":
+            print("b")
+            etat=3
+            #serveur_socket.close()
             sys.exit()  # Terminer le programme proprement
             
              
@@ -232,7 +244,7 @@ def gerer_phase_2(client_socket2, adresse_client):
     while True:
         message_reçu = recevoir_message(client_socket2)
         #print(f"'PHASE 2 {nom_machine}' : Message reçu: {message_reçu} de {adresse_client}")
-        messagePostSuffle.extend(message_reçu)
+        messagePostSuffle.append(message_reçu)
 
 def accepter_connexion_phase1():
     while True:
@@ -249,6 +261,21 @@ def accepter_connexion_phase2():
         # Créer un thread pour gérer la connexion
         thread_connexion = threading.Thread(target=gerer_phase_2, args=(client_socket2, adresse_client))
         thread_connexion.start()
+
+def fermer_connexion(client_socket):
+    try:
+        # Indiquer que vous avez terminé d'envoyer des données
+        client_socket.shutdown(socket.SHUT_WR)
+        # Recevoir les données restantes
+        while True:
+            data = client_socket.recv(1024)
+            if not data:
+                break
+        # Fermer le socket
+        client_socket.close()
+        print(f"Connexion fermée proprement : {client_socket}")
+    except Exception as e:
+        print(f"Erreur lors de la fermeture de la connexion: {e}")
 
 # Fonction pour afficher la barre de progression
 def afficher_barre_progression(iteration, total, texte):

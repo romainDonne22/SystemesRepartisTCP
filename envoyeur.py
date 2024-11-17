@@ -161,8 +161,6 @@ def lancer_phase_4():
     # Recevoir le REDUCE de chaque machine
     for machine, client_socket in connexions.items():
         message_recu = recevoir_message(client_socket)
-        while message_recu == "OK PHASE 3":
-            message_recu = recevoir_message(client_socket)
         #print(f"Reçu '{message_recu}' de {machine}")
         # Enregistrer la liste dans un fichier csv par machine
         with open(f'output/resultats_phase_4_{machine}.csv', 'w') as fichier:
@@ -178,6 +176,8 @@ def lancer_phase_4():
             tab_fin_phase_4[machines.index(machine)] = True
 
 def lancer_fin_programme():
+    for machine, client_socket in connexions.items():
+        envoyer_message(client_socket, "Kill")
     end_time = time.time()
     execution_time = end_time - start_time # Calcul du temps d'exécution
     minutes = int(execution_time // 60) # On divise le temps total par 60 pour avoir les minutes
