@@ -201,17 +201,15 @@ def gerer_connexion(client_socket, adresse_client):
             ####################### REDUCE #########################################
             print(f"'PHASE 3 {nom_machine}' : Message reçu: {message_reçu}")
             compteur_mots = {} # Créer un dictionnaire vide pour compter les mots
-            mots = [] # Créer une liste vide pour stocker les mots
-            for chaine in messagePostSuffle:
-                mots.extend(chaine.split())
-            for mot in mots:
-                if mot in compteur_mots:
-                    compteur_mots[mot] += 1
-                else:
-                    compteur_mots[mot] = 1
-                progressionReduce = progressionReduce+1 # Incrémenter la progression
-                if progressionReduce % 1000000 == 0: # Afficher la progression tous les 1 000 000 mots pour ne pas surcharger la console
-                    afficher_barre_progression(progressionReduce+1, len(mots), "'PHASE 3' : REDUCE en cours ") # Afficher la progression du reduce
+            for liste in messagePostSuffle:
+                for mot in liste:
+                    if mot in compteur_mots:
+                        compteur_mots[mot] += 1
+                    else:
+                        compteur_mots[mot] = 1
+                    progressionReduce = progressionReduce+1 # Incrémenter la progression
+                    if progressionReduce % 1000000 == 0: # Afficher la progression tous les 1 000 000 mots pour ne pas surcharger la console
+                        afficher_barre_progression(progressionReduce+1, len(liste), "'PHASE 3' : REDUCE en cours ") # Afficher la progression du reduce
             
             envoyer_message(client_socket, "OK PHASE 3")
             print(f"'PHASE 3 {nom_machine}' : Message envoyé: OK PHASE 3")
@@ -232,7 +230,6 @@ def gerer_connexion(client_socket, adresse_client):
                 message_reçu = recevoir_message(client_socket)
         
         elif message_reçu == "Kill":
-            print("b")
             etat=3
             #serveur_socket.close()
             sys.exit()  # Terminer le programme proprement
@@ -244,6 +241,7 @@ def gerer_phase_2(client_socket2, adresse_client):
     while True:
         message_reçu = recevoir_message(client_socket2)
         #print(f"'PHASE 2 {nom_machine}' : Message reçu: {message_reçu} de {adresse_client}")
+        message_reçu = json.loads(message_reçu)
         messagePostSuffle.append(message_reçu)
 
 def accepter_connexion_phase1():

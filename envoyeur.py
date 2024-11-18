@@ -155,19 +155,17 @@ def lancer_phase_3():
             tab_fin_phase_3[machines.index(machine)] = True
                   
 def lancer_phase_4():
+    mots=[] # Liste pour stocker les mots
     for machine, client_socket in connexions.items():
         envoyer_message(client_socket, "GO PHASE 4")
         print(f"Envoyé 'GO PHASE 4' à {machine}")
     # Recevoir le REDUCE de chaque machine
     for machine, client_socket in connexions.items():
         message_recu = recevoir_message(client_socket)
-        #print(f"Reçu '{message_recu}' de {machine}")
+        mots = json.loads(message_recu)
         # Enregistrer la liste dans un fichier csv par machine
         with open(f'output/resultats_phase_4_{machine}.csv', 'w') as fichier:
-            #for element in message_recu:
-                #fichier.write(f"{element}\n")
-            mots = message_recu.split(', "') # On sépare les mots après chaque virgule et guillemet - donc après la valeur
-            fichier.write(f"{mots}\n") # On écrit les mots dans le fichier en sautant une ligne
+            fichier.write(f"{mots}") # On écrit les mots dans le fichier en sautant une ligne
         print(f"Liste enregistrée dans 'resultats_phase_4_{machine}.csv'")
     for machine, client_socket in connexions.items(): 
         message_reçu = recevoir_message(client_socket)
