@@ -54,6 +54,23 @@ def envoyer_messages():
         except Exception as e:
             print(f"Erreur lors de l'envoi à {machine}: {e}")
 
+# fonction pour divise une liste en n sous-listes de taille égale
+def diviser_liste_uniformement(lst, n):
+    print(f"Il y a {len(lst)} mots à partager vers {n} machines")
+    # Vérifier si la liste a un nombre impair d'éléments
+    if len(lst) % 2 != 0:
+        lst.append("")  # Ajouter un élément fictif pour rendre la liste de longueur paire
+    # Calculer la taille des sous-listes
+    k, m = divmod(len(lst), n)
+    # S'assurer que la taille des sous-listes est paire
+    if k % 2 != 0:
+        k += 1
+    # Diviser la liste en sous-listes de taille égale jusqu'à l'avant-dernier élément
+    sous_listes = [lst[i * k:(i + 1) * k] for i in range(n - 1)]
+    # Ajouter le complément restant à la dernière sous-liste
+    sous_listes.append(lst[(n - 1) * k:])
+    return sous_listes
+
 def recevoir_exactement(client_socket, n):
     data = b''
     while len(data) < n:
@@ -118,14 +135,30 @@ def recevoir_messages():
             elif all(tab_fin_phase_3) and not all(tab_fin_phase_4):
                 print("Toutes les machines ont fini la phase 3")
                 print("---------------------------------------")
-                lancer_phase_4()
+                mots=lancer_phase_4()
+            ######################## Phase 5 ########################
+            elif all(tab_fin_phase_4) and not all(tab_fin_phase_5):
+                print("Toutes les machines ont fini la phase 4")
+                print("---------------------------------------")
+                lancer_phase_5(mots)
+            ######################## Phase 6 ########################
+            elif all(tab_fin_phase_5):
+                print("Toutes les machines ont fini la phase 5")
+                print("---------------------------------------")
+                lancer_phase_6()
+                break
+
+
             ######################## Statistiques ###################
-            elif all(tab_fin_phase_4):
+            elif all(tab_fin_phase_XXX):
                 print("Toutes les machines ont fini la phase 4")
                 print("---------------------------------------")
                 lancer_fin_programme()
     except Exception as e:
         print(f"Erreur lors de la réception de {machine}: {e}")
+
+
+
 
 def lancer_phase_1():
     for machine, client_socket in connexions.items():
@@ -156,6 +189,7 @@ def lancer_phase_3():
                   
 def lancer_phase_4():
     mots=[] # Liste pour stocker les mots
+    Tousmots=[] # Liste pour stocker tous les mots
     for machine, client_socket in connexions.items():
         envoyer_message(client_socket, "GO PHASE 4")
         print(f"Envoyé 'GO PHASE 4' à {machine}")
@@ -167,11 +201,34 @@ def lancer_phase_4():
         with open(f'output/resultats_phase_4_{machine}.csv', 'w') as fichier:
             fichier.write(f"{mots}") # On écrit les mots dans le fichier en sautant une ligne
         print(f"Liste enregistrée dans 'resultats_phase_4_{machine}.csv'")
+        Tousmots.extend(mots) # Ajouter les mots reçus à la liste
     for machine, client_socket in connexions.items(): 
         message_reçu = recevoir_message(client_socket)
         if message_reçu == "OK PHASE 4":
             print(f"Reçu '{message_reçu}' de {machine}")
             tab_fin_phase_4[machines.index(machine)] = True
+    return Tousmots
+
+def lancer_phase_5(mots):
+    for machine, client_socket in connexions.items():
+        envoyer_message(client_socket, "GO PHASE 5")
+        print(f"Envoyé 'GO PHASE 5' à {machine}")
+    # Diviser la liste de mots en sous-listes de taille égale
+    sous_listes = diviser_liste_uniformement(mots, len(machines))
+    # Envoyer chaque sous-liste à une machine différente en utilisant un modulo
+    for i, (machine, client_socket) in enumerate(connexions.items()):
+        sous_liste = sous_listes[i % len(sous_listes)]
+        mots_json = json.dumps(sous_liste)
+        envoyer_message(client_socket, mots_json)
+        print(f"Envoyé {len(sous_liste)} mots à {machine}")
+    for machine, client_socket in connexions.items(): 
+        message_reçu = recevoir_message(client_socket)
+        if message_reçu == "OK PHASE 5":
+            print(f"Reçu '{message_reçu}' de {machine}")
+            tab_fin_phase_5[machines.index(machine)] = True
+
+def lancer_phase_6():
+    time.sleep(10) # Attendre 5 secondes pour laisser le temps aux machines de finir la phase 5
 
 def lancer_fin_programme():
     for machine, client_socket in connexions.items():
@@ -206,6 +263,9 @@ tab_fin_phase_1 = [False]*len(machines)
 tab_fin_phase_2 = [False]*len(machines)
 tab_fin_phase_3 = [False]*len(machines)
 tab_fin_phase_4 = [False]*len(machines)
+tab_fin_phase_5 = [False]*len(machines)
+tab_fin_phase_6 = [False]*len(machines)
+tab_fin_phase_7 = [False]*len(machines)
 
 # Dictionnaire pour stocker les connexions
 connexions = {}

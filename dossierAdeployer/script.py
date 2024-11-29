@@ -228,8 +228,31 @@ def gerer_connexion(client_socket, adresse_client):
             envoyer_message_liste(client_socket, liste) 
             envoyer_message(client_socket, "OK PHASE 4")
             print(f"'PHASE 4 {nom_machine}' : Message envoyé: OK PHASE 4")
-            while message_reçu !="Kill":
+            while message_reçu !="GO PHASE 5":
                 message_reçu = recevoir_message(client_socket)
+        
+        ### SECOND MAPREDUCE pour trier les mots par occurence
+        ### MAP2
+        elif message_reçu == "GO PHASE 5":    
+            print(f"'PHASE 5 {nom_machine}' : Message reçu: {message_reçu}")
+            message_reçu = recevoir_message(client_socket)
+            liste2 = json.loads(message_reçu) # Convertir le message en liste
+            liste_tuples = convertir_en_tuples(liste2) # Convertir la liste en liste de tuples
+            listre_triee=trier_par_occurrences(liste_tuples) # Trier la liste de tuples par occurrences
+            print(f"'PHASE 5 {nom_machine}' : Element avec le plus // moins d'occurences: {listre_triee[0]} // {listre_triee[-1]}")
+            envoyer_message(client_socket, "OK PHASE 5")
+            while message_reçu !="GO PHASE 6":
+                message_reçu = recevoir_message(client_socket)
+        
+        ### SHUFFLE2
+        elif message_reçu == "GO PHASE 6":    
+            print(f"'PHASE 6 {nom_machine}' : Message reçu: {message_reçu}")
+
+
+        ### REDUCE2
+        elif message_reçu == "GO PHASE 7":    
+            print(f"'PHASE 6 {nom_machine}' : Message reçu: {message_reçu}")
+
         
         elif message_reçu == "Kill":
             etat=3
@@ -286,11 +309,26 @@ def afficher_barre_progression(iteration, total, texte):
     sys.stdout.write(f'\r{texte} |{barre}{espace}| {pourcentage:.2f}%')
     sys.stdout.flush()
 
+# Fonction pour convertir une liste ('mot', occurance) en liste de tuples
+def convertir_en_tuples(liste):
+    tuples = []
+    if len(liste) % 2 != 0:
+        print("Attention : La liste contient un nombre impair d'éléments. Le dernier élément sera ignoré.")
+        # Ignorer le dernier élément pour éviter l'IndexError
+        liste = liste[:-1]
+    for i in range(0, len(liste), 2):
+        tuples.append((liste[i], liste[i + 1]))
+    return tuples
+
+# Fonction pour trier une liste de tuples par occurences
+def trier_par_occurrences(liste_tuples):
+    return sorted(liste_tuples, key=lambda x: x[1], reverse=True)
+
+# Fonction pour vérifier la mémoire disponible, si la mémoire est inférieure à 100 Mo, arrêter le programme
 def memoire_disponible():
     while True:
         with open('/proc/meminfo', 'r') as f:
             meminfo = f.read()
-        # Extraire la mémoire disponible
         for line in meminfo.split('\n'):
             if 'MemAvailable:' in line:
                 mem_disponible = int(line.split()[1]) / 1024  # Convertir en Mo
