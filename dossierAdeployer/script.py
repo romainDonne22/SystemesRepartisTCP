@@ -209,8 +209,10 @@ def gerer_connexion(client_socket, adresse_client):
                         compteur_mots[mot] = 1
                     progressionReduce = progressionReduce+1 # Incrémenter la progression
                     if progressionReduce % 1000000 == 0: # Afficher la progression tous les 1 000 000 mots pour ne pas surcharger la console
-                        afficher_barre_progression(progressionReduce+1, len(liste), "'PHASE 3' : REDUCE en cours ") # Afficher la progression du reduce
-            
+                        afficher_barre_progression(progressionReduce, len(liste), "'PHASE 3' : REDUCE en cours ") # Afficher la progression du reduce
+                progressionReduce = 0
+            afficher_barre_progression(100, 100, "'PHASE 3' : REDUCE en cours ")
+                
             envoyer_message(client_socket, "OK PHASE 3")
             print(f"'PHASE 3 {nom_machine}' : Message envoyé: OK PHASE 3")
             while message_reçu !="GO PHASE 4":
