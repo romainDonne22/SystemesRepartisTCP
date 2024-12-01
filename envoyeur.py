@@ -59,16 +59,16 @@ def diviser_liste_uniformement(lst, n):
     print(f"Il y a {len(lst)} mots à partager vers {n} machines")
     # Vérifier si la liste a un nombre impair d'éléments
     if len(lst) % 2 != 0:
-        lst.append("")  # Ajouter un élément fictif pour rendre la liste de longueur paire
-    # Calculer la taille des sous-listes
-    k, m = divmod(len(lst), n)
+        print(f"Il y a une erreur la liste doit être paire")  # Ajouter un élément fictif pour rendre la liste de longueur paire
+        return None
+    taille = len(lst) // n # Calculer la taille des sous-listes // pour la division entière
     # S'assurer que la taille des sous-listes est paire
-    if k % 2 != 0:
-        k += 1
+    if taille % 2 != 0:
+        taille += 1
     # Diviser la liste en sous-listes de taille égale jusqu'à l'avant-dernier élément
-    sous_listes = [lst[i * k:(i + 1) * k] for i in range(n - 1)]
+    sous_listes = [lst[i * taille:(i + 1) * taille] for i in range(n - 1)]
     # Ajouter le complément restant à la dernière sous-liste
-    sous_listes.append(lst[(n - 1) * k:])
+    sous_listes.append(lst[(n - 1) * taille:])
     return sous_listes
 
 def recevoir_exactement(client_socket, n):
@@ -142,16 +142,18 @@ def recevoir_messages():
                 print("---------------------------------------")
                 lancer_phase_5(mots)
             ######################## Phase 6 ########################
-            elif all(tab_fin_phase_5):
+            elif all(tab_fin_phase_5) and not all(tab_fin_phase_6):
                 print("Toutes les machines ont fini la phase 5")
                 print("---------------------------------------")
                 lancer_phase_6()
-                break
-
-
+            ######################## Phase 6 ########################
+            elif all(tab_fin_phase_6) and not all(tab_fin_phase_7):
+                print("Toutes les machines ont fini la phase 6")
+                print("---------------------------------------")
+                lancer_phase_7()
             ######################## Statistiques ###################
-            elif all(tab_fin_phase_XXX):
-                print("Toutes les machines ont fini la phase 4")
+            elif all(tab_fin_phase_7):
+                print("Toutes les machines ont fini la phase 7")
                 print("---------------------------------------")
                 lancer_fin_programme()
     except Exception as e:
@@ -217,10 +219,19 @@ def lancer_phase_5(mots):
     sous_listes = diviser_liste_uniformement(mots, len(machines))
     # Envoyer chaque sous-liste à une machine différente en utilisant un modulo
     for i, (machine, client_socket) in enumerate(connexions.items()):
-        sous_liste = sous_listes[i % len(sous_listes)]
+        sous_liste = sous_listes[i]
         mots_json = json.dumps(sous_liste)
-        envoyer_message(client_socket, mots_json)
         print(f"Envoyé {len(sous_liste)} mots à {machine}")
+        envoyer_message(client_socket, mots_json)
+    occurance=[0]*len(machines)
+    i=0
+    for machine, client_socket in connexions.items(): 
+        occurance[i] = recevoir_message(client_socket)
+        i=i+1
+    occuranceMax = max(occurance)
+    print(f"Reçu 'Le mot le plus fréquent a une occurnace de : {occuranceMax}")
+    for machine, client_socket in connexions.items(): 
+        envoyer_message(client_socket, occuranceMax)
     for machine, client_socket in connexions.items(): 
         message_reçu = recevoir_message(client_socket)
         if message_reçu == "OK PHASE 5":
@@ -228,7 +239,33 @@ def lancer_phase_5(mots):
             tab_fin_phase_5[machines.index(machine)] = True
 
 def lancer_phase_6():
-    time.sleep(10) # Attendre 5 secondes pour laisser le temps aux machines de finir la phase 5
+    for machine, client_socket in connexions.items():
+        envoyer_message(client_socket, "GO PHASE 6")
+        print(f"Envoyé 'GO PHASE 6' à {machine}")
+    for machine, client_socket in connexions.items():
+        message_reçu = recevoir_message(client_socket)
+        if message_reçu == "OK PHASE 6":
+            print(f"Reçu '{message_reçu}' de {machine}")
+            tab_fin_phase_6[machines.index(machine)] = True
+
+def lancer_phase_7():
+    for machine, client_socket in connexions.items():
+        envoyer_message(client_socket, "GO PHASE 7")
+        print(f"Envoyé 'GO PHASE 7' à {machine}")
+    # Recevoir le REDUCE 2 de chaque machine
+    for machine, client_socket in connexions.items():
+        message_recu = recevoir_message(client_socket)
+        mots = json.loads(message_recu)
+        # Enregistrer la liste dans un fichier csv par machine
+        with open(f'output/resultats_phase_7_{machine}.csv', 'w') as fichier:
+            fichier.write(f"{mots}") # On écrit les mots dans le fichier en sautant une ligne
+        print(f"Liste enregistrée dans 'resultats_phase_7_{machine}.csv'")
+    for machine, client_socket in connexions.items():
+        message_reçu = recevoir_message(client_socket)
+        if message_reçu == "OK PHASE 7":
+            print(f"Reçu '{message_reçu}' de {machine}")
+            tab_fin_phase_7[machines.index(machine)] = True
+    
 
 def lancer_fin_programme():
     for machine, client_socket in connexions.items():
