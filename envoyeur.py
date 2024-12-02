@@ -199,10 +199,10 @@ def lancer_phase_4():
     for machine, client_socket in connexions.items():
         message_recu = recevoir_message(client_socket)
         mots = json.loads(message_recu)
-        # Enregistrer la liste dans un fichier csv par machine
-        with open(f'output/resultats_phase_4_{machine}.csv', 'w') as fichier:
-            fichier.write(f"{mots}") # On écrit les mots dans le fichier en sautant une ligne
-        print(f"Liste enregistrée dans 'resultats_phase_4_{machine}.csv'")
+        # # Enregistrer la liste dans un fichier csv par machine
+        # with open(f'output/resultats_phase_4_{machine}.csv', 'w') as fichier:
+        #     fichier.write(f"{mots}") # On écrit les mots dans le fichier en sautant une ligne
+        # print(f"Liste enregistrée dans 'resultats_phase_4_{machine}.csv'")
         Tousmots.extend(mots) # Ajouter les mots reçus à la liste
     for machine, client_socket in connexions.items(): 
         message_reçu = recevoir_message(client_socket)
@@ -227,10 +227,9 @@ def lancer_phase_5(mots):
     i=0
     for machine, client_socket in connexions.items(): 
         occurance[i] = recevoir_message(client_socket)
-        print(f"Reçu 'Le mot le plus fréquent a une occurnace de : {occurance[i]} de {machine}")
+        print(f"Reçu 'Le mot le plus fréquent a une occurance de : {occurance[i]} de {machine}")
         i=i+1
     occuranceMax = max(occurance)
-    print(f"Reçu 'Le mot le plus fréquent au global a une occurnace de : {occuranceMax}")
     for machine, client_socket in connexions.items(): 
         envoyer_message(client_socket, occuranceMax)
     for machine, client_socket in connexions.items(): 

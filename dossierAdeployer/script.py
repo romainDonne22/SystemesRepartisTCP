@@ -365,21 +365,7 @@ def trier_par_occurrences(liste_tuples):
     return sorted(liste_tuples, key=lambda x: (-x[1], x[0]))
 
 # # Fonction pour répartir les mots par occurrences sur différentes machines. Mot avec 1 occurrence -> machine 1, mot avec 2 occurrences -> machine 2, etc.
-# def repartir_mots_par_occurrences(liste_triee, occuranceMax, connexions):
-#     #print(f"occuranceMax: {occuranceMax} // len(connexions): {len(connexions)}")
-#     mots_par_machine = {machine: [] for machine in connexions.keys()}
-#     segment = occuranceMax / len(connexions)  # Diviser les mots en segments en fonction du nombre de machines
-#     for mot, occurrence in liste_triee:
-#         # Calculer l'index de la machine en fonction de l'occurrence et du nombre de machines
-#         machine_index = round((occurrence) / segment) - 1
-#         machine = list(connexions.keys())[machine_index]
-#         if mot : 
-#             mots_par_machine[machine].extend((mot, occurrence))
-    
-#     return mots_par_machine
-
 def repartir_mots_par_occurrences(liste_triee, occuranceMax, connexions):
-    """Répartit les mots par occurrences sur différentes machines."""
     mots_par_machine = {machine: [] for machine in connexions.keys()}
     machines = list(connexions.keys())
     num_machines = len(machines)
