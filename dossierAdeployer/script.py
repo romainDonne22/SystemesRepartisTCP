@@ -267,7 +267,8 @@ def gerer_connexion(client_socket, adresse_client):
             for machine, mots in mots_par_machine.items():
                 mots_json = json.dumps(mots)
                 #envoyer_message(connexions[machine], mots_json)
-                envoyer_message(connexions_phase_2[machine], mots_json)
+                if mots:
+                    envoyer_message(connexions_phase_2[machine], mots_json)
                 progressionShuffle2 = progressionShuffle2+1 # Incrémenter la progression
                 afficher_barre_progression(progressionShuffle2, len(mots_par_machine), "'PHASE 6' : SHUFFLE2 en cours ") # Afficher la progression
             
@@ -281,10 +282,7 @@ def gerer_connexion(client_socket, adresse_client):
         elif message_reçu == "GO PHASE 7":  
             etat=8  
             print(f"'PHASE 7 {nom_machine}' : Message reçu: {message_reçu}")
-            ##messagePostShuffle2=trier_par_occurrences(messagePostShuffle2) # Trier la liste de tuples par occurrences et par ordre alphabétique
-            envoyer_message_liste(client_socket, messagePostShuffle2) # Envoyer la liste
-            #!!! messagePostShuffle2 n'est pas trié
-            #certains caratère on des [ ] en trop probablement un attend à la place d'un extend.
+            envoyer_message_liste(client_socket, trier_par_occurrences(convertir_en_tuples(messagePostShuffle2))) # Envoyer la liste triée par occurences
             envoyer_message(client_socket, "OK PHASE 7")
             print(f"'PHASE 7 {nom_machine}' : Message envoyé: OK PHASE 7")
             while message_reçu !="Kill":
@@ -308,7 +306,7 @@ def gerer_phase_2(client_socket2, adresse_client):
         if etat < 6 :
             messagePostShuffle.append(message_reçu)
         elif etat >= 7:
-            messagePostShuffle2.append(message_reçu)
+            messagePostShuffle2.extend(message_reçu)
 
 def accepter_connexion_phase1():
     while True:
@@ -366,18 +364,47 @@ def trier_par_occurrences(liste_tuples):
     #return sorted(liste_tuples, key=lambda x: x[1], reverse=True)
     return sorted(liste_tuples, key=lambda x: (-x[1], x[0]))
 
-# Fonction pour répartir les mots par occurrences sur différentes machines. Mot avec 1 occurrence -> machine 1, mot avec 2 occurrences -> machine 2, etc.
+# # Fonction pour répartir les mots par occurrences sur différentes machines. Mot avec 1 occurrence -> machine 1, mot avec 2 occurrences -> machine 2, etc.
+# def repartir_mots_par_occurrences(liste_triee, occuranceMax, connexions):
+#     #print(f"occuranceMax: {occuranceMax} // len(connexions): {len(connexions)}")
+#     mots_par_machine = {machine: [] for machine in connexions.keys()}
+#     segment = occuranceMax / len(connexions)  # Diviser les mots en segments en fonction du nombre de machines
+#     for mot, occurrence in liste_triee:
+#         # Calculer l'index de la machine en fonction de l'occurrence et du nombre de machines
+#         machine_index = round((occurrence) / segment) - 1
+#         machine = list(connexions.keys())[machine_index]
+#         if mot : 
+#             mots_par_machine[machine].extend((mot, occurrence))
+    
+#     return mots_par_machine
+
 def repartir_mots_par_occurrences(liste_triee, occuranceMax, connexions):
-    print(f"occuranceMax: {occuranceMax} // len(connexions): {len(connexions)}")
+    """Répartit les mots par occurrences sur différentes machines."""
     mots_par_machine = {machine: [] for machine in connexions.keys()}
-    segment = occuranceMax / len(connexions)  # Diviser les mots en segments en fonction du nombre de machines
-    for mot, occurrence in liste_triee:
-        # Calculer l'index de la machine en fonction de l'occurrence et du nombre de machines
-        machine_index = round((occurrence) / segment) - 1
-        machine = list(connexions.keys())[machine_index]
-        mots_par_machine[machine].extend((mot, occurrence))
+    machines = list(connexions.keys())
+    num_machines = len(machines)
+    
+    if num_machines == 1:
+        # Si une seule machine, elle reçoit toute la liste triée
+        mots_par_machine[machines[0]] = liste_triee
+    elif num_machines == 2:
+        # Si deux machines, la première reçoit les mots d'occurrence 1, la seconde reçoit tous les autres
+        for mot, occurrence in liste_triee:
+            if occurrence == 1:
+                mots_par_machine[machines[0]].extend((mot, occurrence))
+            else:
+                mots_par_machine[machines[1]].extend((mot, occurrence))
+    else:
+        # Si plus de deux machines, répartir les mots selon les occurrences
+        for mot, occurrence in liste_triee:
+            if occurrence <= num_machines - 1:
+                machine_index = occurrence - 1
+            else:
+                machine_index = num_machines - 1
+            mots_par_machine[machines[machine_index]].extend((mot, occurrence))
     
     return mots_par_machine
+
 
 # Fonction pour vérifier la mémoire disponible, si la mémoire est inférieure à 100 Mo, arrêter le programme
 def memoire_disponible():
