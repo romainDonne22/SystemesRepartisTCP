@@ -226,15 +226,15 @@ def lancer_phase_5(mots):
         mots_json = json.dumps(sous_liste)
         print(f"Envoyé {len(sous_liste)} mots à {machine}")
         envoyer_message(client_socket, mots_json)
-    occurance=[0]*len(machines)
+    occurrence=[0]*len(machines)
     i=0
     for machine, client_socket in connexions.items(): 
-        occurance[i] = recevoir_message(client_socket)
-        print(f"Reçu 'Le mot le plus fréquent a une occurance de : {occurance[i]} de {machine}")
+        occurrence[i] = recevoir_message(client_socket)
+        print(f"Reçu 'Le mot le plus fréquent a une occurrence de : {occurrence[i]} de {machine}")
         i=i+1
-    occuranceMax = max(occurance)
+    occurrenceMax = max(occurrence)
     for machine, client_socket in connexions.items(): 
-        envoyer_message(client_socket, occuranceMax)
+        envoyer_message(client_socket, occurrenceMax)
     for machine, client_socket in connexions.items(): 
         message_reçu = recevoir_message(client_socket)
         if message_reçu == "OK PHASE 5":
@@ -301,10 +301,33 @@ def lancer_fin_programme():
     sys.exit()
 
 
-# L'utilisateur renseigne le nombre de fichiers WET à traiter et le nombre de machines à utiliser
-nbfichiers = int(input("Nombre de fichiers WET à traiter ? [Entrez un nombre entier] : "))
-nbmachines = int(input("Nombre de machines à utiliser ? [Entrez un nombre entier, 30 au maximum] : "))
-nbMAPREDUCE = int(input("Nombre de MAPREDUCE à effectuer ? [Entrez '1' ou '2' ] : "))
+# L'utilisateur renseigne le nombre de fichiers WET à traiter et le nombre de machines à utiliser et le nombre de MAPREDUCE
+while True:
+    try:
+        nbfichiers = int(input("Entrez le nombre de fichiers (entre 1 et 100) : "))
+        if nbfichiers < 1 or nbfichiers > 100:
+            raise ValueError
+        break  # Sortir de la boucle si la valeur est valide
+    except ValueError as e:
+        print(f"Erreur de saisie : {e}. Le nombre de fichiers doit être un entier compris entre 1 et 100.")
+
+while True:
+    try:
+        nbmachines = int(input("Nombre de machines à utiliser ? [Entrez un nombre entier, 30 au maximum] : "))
+        if nbmachines <1 or nbmachines >30 :
+            raise ValueError
+        break  # Sortir de la boucle si la valeur est valide
+    except ValueError as e:
+        print(f"Erreur de saisie : {e}. Le nombre de machines doit être un entier compris entre 1 et 30.")
+
+while True:
+    try:
+        nbMAPREDUCE = int(input("Nombre de MAPREDUCE à effectuer ? [Entrez '1' pour fire le WordCount ou '2' pour faire le trie en plus] : "))
+        if not (nbMAPREDUCE==1 or nbMAPREDUCE==2) :
+            raise ValueError
+        break  # Sortir de la boucle si la valeur est valide
+    except ValueError as e:
+        print(f"Erreur de saisie : {e}. Entrez '1' pour fire le WordCount ou '2' pour faire le trie en plus.")
 
 # Lire les adresses des machines à partir du fichier machines.txt
 with open('machines.txt', 'r') as file:

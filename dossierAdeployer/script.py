@@ -137,7 +137,7 @@ def gerer_connexion(client_socket, adresse_client):
     motsWET_json = [] # Créer une liste vide pour stocker tous les mots des fichiers WET une fois splités au format json
     liste2=[] # Créer une liste vide pour stocker les mots des fichiers WET renvoyé par l'envoyeur un fois le premier MAPREDUCE terminé
     liste_tuples=[] # Créer une liste vide pour stocker liste2 sous forme de tuples
-    liste_triee=[] # Créer une liste vide pour stocker liste_tuples triée par occurences puis ordre alphabétique
+    liste_triee=[] # Créer une liste vide pour stocker liste_tuples triée par occurrences puis ordre alphabétique
     progressionShuffle = 0 # Initialiser la progression du shuffle à 0
     progressionReduce = 0 # Initialiser la progression du reduce à 0
     progressionShuffle2 = 0 # Initialiser la progression du shuffle à 0
@@ -240,7 +240,7 @@ def gerer_connexion(client_socket, adresse_client):
             #while (message_reçu !="GO PHASE 5") or (message_reçu !="Kill"):
             message_reçu = recevoir_message(client_socket)
         
-        ### SECOND MAPREDUCE pour trier les mots par occurence
+        ### SECOND MAPREDUCE pour trier les mots par occurrence
         ### MAP2
         elif message_reçu == "GO PHASE 5":  
             etat=6  
@@ -249,9 +249,9 @@ def gerer_connexion(client_socket, adresse_client):
             liste2 = json.loads(message_reçu) # Convertir le message en liste
             liste_tuples = convertir_en_tuples(liste2) # Convertir la liste en liste de tuples
             liste_triee=trier_par_occurrences(liste_tuples) # Trier la liste de tuples par occurrences
-            print(f"'PHASE 5 {nom_machine}' : Element avec le plus d'occurences: {liste_triee[0]} ")
-            envoyer_message(client_socket, json.dumps(liste_triee[0][1])) # Envoyer le nombre d'occurences du premier tuple c'est à dire celui qui a le plus d'occurances
-            occuranceMax=recevoir_message(client_socket) # Recevoir le nombre d'occurences max atteint pour un mot, toutes machines confondues
+            print(f"'PHASE 5 {nom_machine}' : Element avec le plus d'occurrences: {liste_triee[0]} ")
+            envoyer_message(client_socket, json.dumps(liste_triee[0][1])) # Envoyer le nombre d'occurrences du premier tuple c'est à dire celui qui a le plus d'occurrences
+            occurrenceMax=recevoir_message(client_socket) # Recevoir le nombre d'occurrences max atteint pour un mot, toutes machines confondues
             
             envoyer_message(client_socket, "OK PHASE 5")
             print(f"'PHASE 5 {nom_machine}' : Message envoyé: OK PHASE 5")
@@ -263,7 +263,7 @@ def gerer_connexion(client_socket, adresse_client):
             etat=7   
             print(f"'PHASE 6 {nom_machine}' : Message reçu: {message_reçu}")
             # Répartir les mots par occurrences sur différentes machines
-            mots_par_machine = repartir_mots_par_occurrences(liste_triee, int(occuranceMax), connexions_phase_2)
+            mots_par_machine = repartir_mots_par_occurrences(liste_triee, int(occurrenceMax), connexions_phase_2)
             # Envoyer les mots à chaque machine
             if len(machines_reçues) == 1:
                 print(f"'PHASE 6 {nom_machine}' : Je suis la seule machine, je peux sauter le shuffle2.")
@@ -288,9 +288,9 @@ def gerer_connexion(client_socket, adresse_client):
             etat=8  
             print(f"'PHASE 7 {nom_machine}' : Message reçu: {message_reçu}")
             if len(machines_reçues) == 1:
-                envoyer_message_liste(client_socket, (liste_triee)) # Envoyer la liste triée par occurences
+                envoyer_message_liste(client_socket, (liste_triee)) # Envoyer la liste triée par occurrences
             else : 
-                envoyer_message_liste(client_socket, trier_par_occurrences(convertir_en_tuples(messagePostShuffle2))) # Envoyer la liste triée par occurences
+                envoyer_message_liste(client_socket, trier_par_occurrences(convertir_en_tuples(messagePostShuffle2))) # Envoyer la liste triée par occurrences
             envoyer_message(client_socket, "OK PHASE 7")
             print(f"'PHASE 7 {nom_machine}' : Message envoyé: OK PHASE 7")
             while message_reçu !="Kill":
@@ -354,7 +354,7 @@ def afficher_barre_progression(iteration, total, texte):
     sys.stdout.write(f'\r{texte} |{barre}{espace}| {pourcentage:.2f}%')
     sys.stdout.flush()
 
-# Fonction pour convertir une liste ('mot', occurance) en liste de tuples
+# Fonction pour convertir une liste ('mot', occurrence) en liste de tuples
 def convertir_en_tuples(liste):
     tuples = []
     if len(liste) % 2 != 0:
@@ -365,13 +365,13 @@ def convertir_en_tuples(liste):
         tuples.append((liste[i], liste[i + 1]))
     return tuples
 
-# Fonction pour trier une liste de tuples par occurences
+# Fonction pour trier une liste de tuples par occurrences
 def trier_par_occurrences(liste_tuples):
     #return sorted(liste_tuples, key=lambda x: x[1], reverse=True)
     return sorted(liste_tuples, key=lambda x: (-x[1], x[0]))
 
 # Fonction pour répartir les mots par occurrences sur différentes machines. Mot avec 1 occurrence -> machine 1, mot avec 2 occurrences -> machine 2, la dernière machine reçoit le reste
-def repartir_mots_par_occurrences(liste_triee, occuranceMax, connexions):
+def repartir_mots_par_occurrences(liste_triee, occurrenceMax, connexions):
     mots_par_machine = {machine: [] for machine in connexions.keys()}
     machines = list(connexions.keys())
     num_machines = len(machines)
