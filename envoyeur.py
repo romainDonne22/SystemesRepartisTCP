@@ -71,6 +71,10 @@ def diviser_liste_uniformement(lst, n):
     sous_listes.append(lst[(n - 1) * taille:])
     return sous_listes
 
+#Divise une liste en morceaux de taille maximale spécifiée."""
+def diviser_liste(lst, taille_max):
+    return [lst[i:i + taille_max] for i in range(0, len(lst), taille_max)]
+
 def recevoir_exactement(client_socket, n):
     data = b''
     while len(data) < n:
@@ -121,40 +125,41 @@ def recevoir_messages():
         while True:
             if not all(tab_fin_phase_1):
                 lancer_phase_1()
-            ######################## Phase 2 ########################
-            elif all(tab_fin_phase_1) and not all(tab_fin_phase_2):
                 print("Toutes les machines ont fini la phase 1")
                 print("---------------------------------------")
+            ######################## Phase 2 ########################
+            elif all(tab_fin_phase_1) and not all(tab_fin_phase_2):
                 lancer_phase_2()
-            ######################## Phase 3 ########################
-            elif all(tab_fin_phase_2) and not all(tab_fin_phase_3):
                 print("Toutes les machines ont fini la phase 2")
                 print("---------------------------------------")
+            ######################## Phase 3 ########################
+            elif all(tab_fin_phase_2) and not all(tab_fin_phase_3):
                 lancer_phase_3()
-            ######################## Phase 4 ########################
-            elif all(tab_fin_phase_3) and not all(tab_fin_phase_4):
                 print("Toutes les machines ont fini la phase 3")
                 print("---------------------------------------")
+            ######################## Phase 4 ########################
+            elif all(tab_fin_phase_3) and not all(tab_fin_phase_4):
                 mots=lancer_phase_4()
-            ######################## Phase 5 ########################
-            elif all(tab_fin_phase_4) and not all(tab_fin_phase_5):
                 print("Toutes les machines ont fini la phase 4")
                 print("---------------------------------------")
+            ######################## Phase 5 ########################
+            elif all(tab_fin_phase_4) and not all(tab_fin_phase_5) and nbMAPREDUCE == 2:
                 lancer_phase_5(mots)
-            ######################## Phase 6 ########################
-            elif all(tab_fin_phase_5) and not all(tab_fin_phase_6):
+                mots.clear() # Vider la liste de mots pour gagner de la mémoire
                 print("Toutes les machines ont fini la phase 5")
                 print("---------------------------------------")
-                lancer_phase_6()
             ######################## Phase 6 ########################
-            elif all(tab_fin_phase_6) and not all(tab_fin_phase_7):
+            elif all(tab_fin_phase_5) and not all(tab_fin_phase_6) and nbMAPREDUCE == 2:
+                lancer_phase_6()
                 print("Toutes les machines ont fini la phase 6")
                 print("---------------------------------------")
+            ######################## Phase 7 ########################
+            elif all(tab_fin_phase_6) and not all(tab_fin_phase_7) and nbMAPREDUCE == 2:
                 lancer_phase_7()
-            ######################## Statistiques ###################
-            elif all(tab_fin_phase_7):
                 print("Toutes les machines ont fini la phase 7")
                 print("---------------------------------------")
+            ######################## Statistiques ###################
+            elif all(tab_fin_phase_7) or nbMAPREDUCE == 1:
                 lancer_fin_programme()
     except Exception as e:
         print(f"Erreur lors de la réception de {machine}: {e}")
@@ -199,11 +204,9 @@ def lancer_phase_4():
     for machine, client_socket in connexions.items():
         message_recu = recevoir_message(client_socket)
         mots = json.loads(message_recu)
-        # # Enregistrer la liste dans un fichier csv par machine
-        # with open(f'output/resultats_phase_4_{machine}.csv', 'w') as fichier:
-        #     fichier.write(f"{mots}") # On écrit les mots dans le fichier en sautant une ligne
-        # print(f"Liste enregistrée dans 'resultats_phase_4_{machine}.csv'")
         Tousmots.extend(mots) # Ajouter les mots reçus à la liste
+        if nbMAPREDUCE == 1: # Si on a un seul MAPREDUCE à effectuer      
+            ecrire_fichier(mots, machine, "phase_4")
     for machine, client_socket in connexions.items(): 
         message_reçu = recevoir_message(client_socket)
         if message_reçu == "OK PHASE 4":
@@ -255,36 +258,53 @@ def lancer_phase_7():
     # Recevoir le REDUCE 2 de chaque machine
     for machine, client_socket in connexions.items():
         message_recu = recevoir_message(client_socket)
-        mots = json.loads(message_recu)
-        # Enregistrer la liste dans un fichier csv par machine
-        with open(f'output/resultats_phase_7_{machine}.csv', 'w') as fichier:
-            fichier.write(f"{mots}") # On écrit les mots dans le fichier
-        print(f"Liste enregistrée dans 'resultats_phase_7_{machine}.csv'")
+        mots = json.loads(message_recu)        
+        ecrire_fichier(mots, machine, "phase_7")
+        
     for machine, client_socket in connexions.items():
         message_reçu = recevoir_message(client_socket)
         if message_reçu == "OK PHASE 7":
             print(f"Reçu '{message_reçu}' de {machine}")
             tab_fin_phase_7[machines.index(machine)] = True
     
+def ecrire_fichier(mots, machine, phase):
+    taille_max = 5000000  # Taille maximale de chaque fichier (mettre un nombre paire)
+    morceaux = []
+    if len(mots) > taille_max:
+        morceaux = diviser_liste(mots, taille_max)
+        # Enregistrer chaque morceau dans un fichier csv séparé
+        for i, morceau in enumerate(morceaux):
+            with open(f'output/resultats_{phase}_{machine}_part{i + 1}.csv', 'w') as fichier:
+                fichier.write(f"{morceau}")  # On écrit les mots dans le fichier
+            print(f"Liste enregistrée dans 'resultats_{phase}_{machine}_part{i + 1}.csv'")
+    else:
+        # Enregistrer la liste dans un seul fichier csv
+        with open(f'output/resultats_phase_7_{machine}.csv', 'w') as fichier:
+            fichier.write(f"{mots}")
+        print(f"Liste enregistrée dans 'resultats_phase_7_{machine}.csv'")
 
 def lancer_fin_programme():
     for machine, client_socket in connexions.items():
         envoyer_message(client_socket, "Kill")
+        print(f"Envoyé 'Kill' à {machine}")
     end_time = time.time()
     execution_time = end_time - start_time # Calcul du temps d'exécution
     minutes = int(execution_time // 60) # On divise le temps total par 60 pour avoir les minutes
     seconds = int(execution_time % 60) # On fait un modulo de 60 pour avoir les secondes restantes
     print(f"Temps d'exécution : {minutes} minutes et {seconds} secondes")
     print(f"Soit en secondes : {int(execution_time)} secondes")
-    print(f"Nombre de fichiers WET : {len(fichiersWET)}")
-    print(f"Nombre de machines : {len(machines)}")
+    print(f"Nombre de fichiers WET : {nbfichiers}")
+    print(f"Nombre de machines : {nbmachines}")
+    print(f"Nombre de MAPREDUCE : {nbMAPREDUCE}")
     print("Fin du programme")
+    time.sleep(3) # Attendre avant de terminer le programme
     sys.exit()
 
 
-# L'utilisateur rensigne le nombre de fichiers WET à traiter et le nombre de machines à utiliser
+# L'utilisateur renseigne le nombre de fichiers WET à traiter et le nombre de machines à utiliser
 nbfichiers = int(input("Nombre de fichiers WET à traiter ? [Entrez un nombre entier] : "))
 nbmachines = int(input("Nombre de machines à utiliser ? [Entrez un nombre entier, 30 au maximum] : "))
+nbMAPREDUCE = int(input("Nombre de MAPREDUCE à effectuer ? [Entrez '1' ou '2' ] : "))
 
 # Lire les adresses des machines à partir du fichier machines.txt
 with open('machines.txt', 'r') as file:

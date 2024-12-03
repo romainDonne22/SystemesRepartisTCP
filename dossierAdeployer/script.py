@@ -135,8 +135,12 @@ def gerer_connexion(client_socket, adresse_client):
     contenuWET = [] # Créer une liste vide pour stocker le contenu des fichiers WET, pas encore splité en mots
     motsWET = [] # Créer une liste vide pour stocker tous les mots des fichiers WET une fois splités
     motsWET_json = [] # Créer une liste vide pour stocker tous les mots des fichiers WET une fois splités au format json
+    liste2=[] # Créer une liste vide pour stocker les mots des fichiers WET renvoyé par l'envoyeur un fois le premier MAPREDUCE terminé
+    liste_tuples=[] # Créer une liste vide pour stocker liste2 sous forme de tuples
+    liste_triee=[] # Créer une liste vide pour stocker liste_tuples triée par occurences puis ordre alphabétique
     progressionShuffle = 0 # Initialiser la progression du shuffle à 0
     progressionReduce = 0 # Initialiser la progression du reduce à 0
+    progressionShuffle2 = 0 # Initialiser la progression du shuffle à 0
 
     print(f"'{nom_machine}' : Connexion acceptée de {adresse_client}")
     connexions[adresse_client] = client_socket #stocker la connexion
@@ -216,7 +220,6 @@ def gerer_connexion(client_socket, adresse_client):
                         afficher_barre_progression(progressionReduce, len(liste), "'PHASE 3' : REDUCE en cours ") # Afficher la progression du reduce
                 progressionReduce = 0
             afficher_barre_progression(100, 100, "'PHASE 3' : REDUCE en cours ")
-            #messagePostShuffle=[] # Vider la liste des messages après le shuffle1, sera réutilisé pour le shuffle2
                 
             envoyer_message(client_socket, "OK PHASE 3")
             print(f"'PHASE 3 {nom_machine}' : Message envoyé: OK PHASE 3")
@@ -230,13 +233,12 @@ def gerer_connexion(client_socket, adresse_client):
             for key, value in compteur_mots.items(): #le .items() permet de récupérer la clé et la valeur du dictionnaire
                 liste.append(key) # Ajouter la clé
                 liste.append(value) #Ajouter la valeur à la liste
-            #print(f"'PHASE 4 {nom_machine}' : Message envoyé post REDUCE: {liste}")
-            envoyer_message_liste(client_socket, liste) 
+            envoyer_message_liste(client_socket, liste) # Envoyer la liste post reduce à l'envoyeur
             
             envoyer_message(client_socket, "OK PHASE 4")
             print(f"'PHASE 4 {nom_machine}' : Message envoyé: OK PHASE 4")
-            while message_reçu !="GO PHASE 5":
-                message_reçu = recevoir_message(client_socket)
+            #while (message_reçu !="GO PHASE 5") or (message_reçu !="Kill"):
+            message_reçu = recevoir_message(client_socket)
         
         ### SECOND MAPREDUCE pour trier les mots par occurence
         ### MAP2
@@ -262,16 +264,19 @@ def gerer_connexion(client_socket, adresse_client):
             print(f"'PHASE 6 {nom_machine}' : Message reçu: {message_reçu}")
             # Répartir les mots par occurrences sur différentes machines
             mots_par_machine = repartir_mots_par_occurrences(liste_triee, int(occuranceMax), connexions_phase_2)
-            progressionShuffle2 = 0 # Initialiser la progression du shuffle à 0
             # Envoyer les mots à chaque machine
-            for machine, mots in mots_par_machine.items():
-                mots_json = json.dumps(mots)
-                #envoyer_message(connexions[machine], mots_json)
-                if mots:
-                    envoyer_message(connexions_phase_2[machine], mots_json)
-                progressionShuffle2 = progressionShuffle2+1 # Incrémenter la progression
-                afficher_barre_progression(progressionShuffle2, len(mots_par_machine), "'PHASE 6' : SHUFFLE2 en cours ") # Afficher la progression
-            
+            if len(machines_reçues) == 1:
+                print(f"'PHASE 6 {nom_machine}' : Je suis la seule machine, je peux sauter le shuffle2.")
+
+            else :
+                for machine, mots in mots_par_machine.items():
+                    mots_json = json.dumps(mots)
+                    #envoyer_message(connexions[machine], mots_json)
+                    if mots:
+                        envoyer_message(connexions_phase_2[machine], mots_json)
+                    progressionShuffle2 = progressionShuffle2+1 # Incrémenter la progression
+                    afficher_barre_progression(progressionShuffle2, len(mots_par_machine), "'PHASE 6' : SHUFFLE2 en cours ") # Afficher la progression
+                
             envoyer_message(client_socket, "OK PHASE 6")
             print(f"'PHASE 6 {nom_machine}' : Message envoyé: OK PHASE 6")
             while message_reçu !="GO PHASE 7":
@@ -282,7 +287,10 @@ def gerer_connexion(client_socket, adresse_client):
         elif message_reçu == "GO PHASE 7":  
             etat=8  
             print(f"'PHASE 7 {nom_machine}' : Message reçu: {message_reçu}")
-            envoyer_message_liste(client_socket, trier_par_occurrences(convertir_en_tuples(messagePostShuffle2))) # Envoyer la liste triée par occurences
+            if len(machines_reçues) == 1:
+                envoyer_message_liste(client_socket, (liste_triee)) # Envoyer la liste triée par occurences
+            else : 
+                envoyer_message_liste(client_socket, trier_par_occurrences(convertir_en_tuples(messagePostShuffle2))) # Envoyer la liste triée par occurences
             envoyer_message(client_socket, "OK PHASE 7")
             print(f"'PHASE 7 {nom_machine}' : Message envoyé: OK PHASE 7")
             while message_reçu !="Kill":
@@ -291,17 +299,15 @@ def gerer_connexion(client_socket, adresse_client):
 
         ### Fin du programme
         elif message_reçu == "Kill":
+            print(f"'{nom_machine}' : Fin du programme")
             etat=10
-            #serveur_socket.close()
             sys.exit()  # Terminer le programme proprement
             
              
 def gerer_phase_2(client_socket2, adresse_client):
-    #print(f"'PHASE 2 {nom_machine}' : Gérer phase 2 pour {adresse_client}")
     # Recevoir des messages spécifiques dans une boucle
     while True:
         message_reçu = recevoir_message(client_socket2)
-        #print(f"'PHASE 2 {nom_machine}' : Message reçu: {message_reçu} de {adresse_client}")
         message_reçu = json.loads(message_reçu)
         if etat < 6 :
             messagePostShuffle.append(message_reçu)
@@ -364,15 +370,15 @@ def trier_par_occurrences(liste_tuples):
     #return sorted(liste_tuples, key=lambda x: x[1], reverse=True)
     return sorted(liste_tuples, key=lambda x: (-x[1], x[0]))
 
-# # Fonction pour répartir les mots par occurrences sur différentes machines. Mot avec 1 occurrence -> machine 1, mot avec 2 occurrences -> machine 2, etc.
+# Fonction pour répartir les mots par occurrences sur différentes machines. Mot avec 1 occurrence -> machine 1, mot avec 2 occurrences -> machine 2, la dernière machine reçoit le reste
 def repartir_mots_par_occurrences(liste_triee, occuranceMax, connexions):
     mots_par_machine = {machine: [] for machine in connexions.keys()}
     machines = list(connexions.keys())
     num_machines = len(machines)
-    
     if num_machines == 1:
         # Si une seule machine, elle reçoit toute la liste triée
-        mots_par_machine[machines[0]] = liste_triee
+        for mot, occurrence in liste_triee:
+            mots_par_machine[machines[0]].extend((mot, occurrence))
     elif num_machines == 2:
         # Si deux machines, la première reçoit les mots d'occurrence 1, la seconde reçoit tous les autres
         for mot, occurrence in liste_triee:
@@ -388,7 +394,6 @@ def repartir_mots_par_occurrences(liste_triee, occuranceMax, connexions):
             else:
                 machine_index = num_machines - 1
             mots_par_machine[machines[machine_index]].extend((mot, occurrence))
-    
     return mots_par_machine
 
 
