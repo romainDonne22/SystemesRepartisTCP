@@ -322,12 +322,12 @@ while True:
 
 while True:
     try:
-        nbMAPREDUCE = int(input("Nombre de MAPREDUCE à effectuer ? [Entrez '1' pour fire le WordCount ou '2' pour faire le trie en plus] : "))
+        nbMAPREDUCE = int(input("Nombre de MAPREDUCE à effectuer ? [Entrez '1' pour faire le WordCount ou '2' pour faire le trie en plus] : "))
         if not (nbMAPREDUCE==1 or nbMAPREDUCE==2) :
             raise ValueError
         break  # Sortir de la boucle si la valeur est valide
     except ValueError as e:
-        print(f"Erreur de saisie : {e}. Entrez '1' pour fire le WordCount ou '2' pour faire le trie en plus.")
+        print(f"Erreur de saisie : {e}. Entrez '1' pour faire le WordCount ou '2' pour faire le trie en plus.")
 
 # Lire les adresses des machines à partir du fichier machines.txt
 with open('machines.txt', 'r') as file:
