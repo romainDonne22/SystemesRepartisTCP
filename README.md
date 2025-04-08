@@ -42,7 +42,7 @@ Avant de commencer, assurez-vous d'avoir une réseau contenant plusieurs machine
 Clonez le repository sur votre machine locale :
 
    ```bash
-   git clone https://github.com/ton-utilisateur/nom-du-repository.git
+   git clone https://github.com/romainDonne22/SystemesRepartisTCP.git
    ```
 
 ## Utilisation 
