@@ -64,8 +64,13 @@ L'envoyeur va répartir les fichiers entre les diverses machines
 
 ## Résultats obtenus 
 
+Coté hote : 
 <p align="center">
   <img src="./screens/hote.png" alt="Hote première partie" width="80%">
-  <img src="./screens/hote2.png" alt="Hote seconde partie" width="80%">
+  <img src="./screens/hote2.png" alt="Hote seconde partie" width="30%">
+</p>
+
+Coté worker : 
+<p align="center">
   <img src="./screens/workers.png" alt="Worker" width="80%">
 </p>
